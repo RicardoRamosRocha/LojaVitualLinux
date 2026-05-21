@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+.vscode/
+
+appsettings.Development.json
+
+*.user
+*.suo
+
+node_modules/
+
+wwwroot/uploads/
+
+Migrations/
+
+*.db
