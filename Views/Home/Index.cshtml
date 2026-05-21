@@ -1,8 +1,246 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Loja Virtual";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="bg-dark text-white py-5 overflow-hidden">
+
+    <div class="container py-5">
+
+        <div class="row align-items-center g-5">
+
+            <div class="col-lg-6">
+
+                <span class="badge bg-light text-dark px-3 py-2 rounded-pill mb-3">
+                    Loja Virtual ASP.NET MVC
+                </span>
+
+                <h1 class="display-3 fw-bold mb-4">
+                    Sua Loja Virtual Moderna e Profissional
+                </h1>
+
+                <p class="lead text-light-emphasis mb-4">
+                    Plataforma moderna para vender produtos online com rapidez,
+                    segurança e uma experiência profissional para seus clientes.
+                </p>
+
+                <div class="d-flex flex-column flex-sm-row gap-3">
+
+                    <a href="/Products"
+                       class="btn btn-light btn-lg rounded-3 px-4 shadow-sm">
+
+                        <i class="bi bi-bag me-2"></i>
+                        Ver Produtos
+                    </a>
+
+                    <a href="#beneficios"
+                       class="btn btn-outline-light btn-lg rounded-3 px-4">
+
+                        Saiba Mais
+                    </a>
+
+                </div>
+
+            </div>
+
+            <div class="col-lg-6 text-center">
+
+                <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1200&auto=format&fit=crop"
+                     class="img-fluid rounded-4 shadow-lg"
+                     alt="Loja Virtual">
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<section id="beneficios" class="py-5 bg-light">
+
+    <div class="container py-5">
+
+        <div class="text-center mb-5">
+
+            <h2 class="fw-bold display-5 mb-3">
+                Recursos da Plataforma
+            </h2>
+
+            <p class="text-muted fs-5">
+                Tudo que você precisa para administrar sua loja online.
+            </p>
+
+        </div>
+
+        <div class="row g-4">
+
+            <div class="col-md-6 col-lg-3">
+
+                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+
+                    <div class="mb-4">
+                        <i class="bi bi-cart-check fs-1 text-primary"></i>
+                    </div>
+
+                    <h4 class="fw-bold mb-3">
+                        Carrinho Inteligente
+                    </h4>
+
+                    <p class="text-muted">
+                        Sistema moderno de carrinho para facilitar as compras.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+
+                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+
+                    <div class="mb-4">
+                        <i class="bi bi-credit-card fs-1 text-success"></i>
+                    </div>
+
+                    <h4 class="fw-bold mb-3">
+                        Pagamentos Seguros
+                    </h4>
+
+                    <p class="text-muted">
+                        Integração com gateways de pagamento modernos.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+
+                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+
+                    <div class="mb-4">
+                        <i class="bi bi-phone fs-1 text-danger"></i>
+                    </div>
+
+                    <h4 class="fw-bold mb-3">
+                        Responsivo
+                    </h4>
+
+                    <p class="text-muted">
+                        Funciona perfeitamente em celulares e computadores.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-6 col-lg-3">
+
+                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+
+                    <div class="mb-4">
+                        <i class="bi bi-speedometer2 fs-1 text-warning"></i>
+                    </div>
+
+                    <h4 class="fw-bold mb-3">
+                        Alta Performance
+                    </h4>
+
+                    <p class="text-muted">
+                        Aplicação rápida desenvolvida com ASP.NET Core.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<section class="py-5">
+
+    <div class="container py-5">
+
+        <div class="row align-items-center g-5">
+
+            <div class="col-lg-6">
+
+                <img src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1200&auto=format&fit=crop"
+                     class="img-fluid rounded-4 shadow"
+                     alt="Dashboard">
+
+            </div>
+
+            <div class="col-lg-6">
+
+                <span class="badge bg-dark px-3 py-2 rounded-pill mb-3">
+                    Administração Completa
+                </span>
+
+                <h2 class="display-5 fw-bold mb-4">
+                    Controle total da sua loja
+                </h2>
+
+                <p class="text-muted fs-5 mb-4">
+                    Gerencie produtos, estoque, preços e pedidos através
+                    de um painel administrativo moderno e intuitivo.
+                </p>
+
+                <div class="d-flex flex-column gap-3">
+
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                        <span>Cadastro rápido de produtos</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                        <span>Gerenciamento de estoque</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                        <span>Interface moderna e responsiva</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                        <span>Integração com banco MySQL</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<section class="bg-dark text-white py-5">
+
+    <div class="container py-5 text-center">
+
+        <h2 class="display-5 fw-bold mb-4">
+            Comece sua loja virtual agora
+        </h2>
+
+        <p class="lead text-light-emphasis mb-5">
+            Estrutura moderna utilizando ASP.NET MVC, Entity Framework Core e MySQL.
+        </p>
+
+        <a href="/Products"
+           class="btn btn-light btn-lg rounded-3 px-5 shadow-sm">
+
+            <i class="bi bi-shop me-2"></i>
+            Acessar Produtos
+        </a>
+
+    </div>
+
+</section>
+
