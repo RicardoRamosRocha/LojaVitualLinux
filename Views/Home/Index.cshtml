@@ -1,52 +1,428 @@
 ﻿@{
-    ViewData["Title"] = "Loja Virtual";
+    ViewData["Title"] = "Angel Acessórios";
 }
 
-<section class="bg-dark text-white py-5 overflow-hidden">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-    <div class="container py-5">
+<style>
 
-        <div class="row align-items-center g-5">
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
 
-            <div class="col-lg-6">
+    body {
+        font-family: 'Montserrat', sans-serif;
+        background: #f8f8f8;
+        color: #111;
+    }
 
-                <span class="badge bg-light text-dark px-3 py-2 rounded-pill mb-3">
-                    Loja Virtual ASP.NET MVC
-                </span>
+    .navbar {
+        background: white;
+        padding: 18px 0;
+        border-bottom: 1px solid #ececec;
+    }
 
-                <h1 class="display-3 fw-bold mb-4">
-                    Sua Loja Virtual Moderna e Profissional
-                </h1>
+    .navbar-brand {
+        font-weight: 700;
+        font-size: 1.5rem;
+        letter-spacing: 3px;
+    }
 
-                <p class="lead text-light-emphasis mb-4">
-                    Plataforma moderna para vender produtos online com rapidez,
-                    segurança e uma experiência profissional para seus clientes.
-                </p>
+    .nav-link {
+        color: #111 !important;
+        margin-left: 25px;
+        font-weight: 500;
+    }
 
-                <div class="d-flex flex-column flex-sm-row gap-3">
+    .hero {
+        padding: 80px 0 40px;
+    }
 
-                    <a href="/Products"
-                       class="btn btn-light btn-lg rounded-3 px-4 shadow-sm">
+    .hero-box {
+        background: white;
+        border-radius: 35px;
+        overflow: hidden;
+        min-height: 650px;
+    }
 
-                        <i class="bi bi-bag me-2"></i>
-                        Ver Produtos
+    .hero-left {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100%;
+    }
+
+    .hero-tag {
+        font-size: .9rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 20px;
+        color: #777;
+    }
+
+    .hero-title {
+        font-size: 4.5rem;
+        font-weight: 700;
+        line-height: 1.1;
+        margin-bottom: 25px;
+    }
+
+    .hero-text {
+        color: #666;
+        font-size: 1.1rem;
+        max-width: 500px;
+        margin-bottom: 40px;
+    }
+
+    .hero-buttons {
+        display: flex;
+        gap: 15px;
+    }
+
+    .btn-dark-custom {
+        background: #111;
+        color: white;
+        padding: 14px 30px;
+        border-radius: 50px;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .btn-light-custom {
+        background: #efefef;
+        color: #111;
+        padding: 14px 30px;
+        border-radius: 50px;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .hero-right {
+        height: 100%;
+        position: relative;
+    }
+
+    .hero-right img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .floating-card {
+        position: absolute;
+        bottom: 30px;
+        left: 30px;
+        background: rgba(255,255,255,.9);
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        border-radius: 20px;
+        width: 240px;
+    }
+
+    .hero-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .sound-btn {
+        position: absolute;
+        bottom: 30px;
+        right: 30px;
+        z-index: 10;
+        border: none;
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        background: white;
+        font-size: 20px;
+    }
+
+    .floating-card h5 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+
+    .floating-card p {
+        color: #666;
+        font-size: .9rem;
+        margin: 0;
+    }
+
+    .section {
+        padding: 100px 0;
+    }
+
+    .section-title {
+        font-size: 2.7rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+
+    .section-text {
+        color: #777;
+        margin-bottom: 60px;
+    }
+
+    .product-card {
+        background: white;
+        border-radius: 30px;
+        overflow: hidden;
+        transition: .3s;
+        height: 100%;
+    }
+
+    .product-card:hover {
+        transform: translateY(-6px);
+    }
+
+    .product-card img {
+        width: 100%;
+        height: 420px;
+        object-fit: cover;
+    }
+
+    .product-content {
+        padding: 25px;
+    }
+
+    .product-category {
+        color: #777;
+        font-size: .9rem;
+        margin-bottom: 10px;
+    }
+
+    .product-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    .product-price {
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .video-section {
+        background: #111;
+        border-radius: 40px;
+        overflow: hidden;
+    }
+
+    .video-content {
+        padding: 70px;
+        color: white;
+    }
+
+    .video-content h2 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 25px;
+    }
+
+    .video-content p {
+        color: rgba(255,255,255,.7);
+        margin-bottom: 30px;
+    }
+
+    .video-wrapper video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(3,1fr);
+        gap: 25px;
+    }
+
+    .mini-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 25px;
+        height: 420px;
+    }
+
+    .mini-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .mini-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,.6), transparent);
+        display: flex;
+        align-items: end;
+        padding: 30px;
+    }
+
+    .mini-overlay h4 {
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    footer {
+        padding: 70px 0;
+    }
+
+    .footer-box {
+        background: white;
+        border-radius: 35px;
+        padding: 50px;
+    }
+
+    .footer-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .footer-icons i {
+        font-size: 1.3rem;
+        margin-right: 20px;
+    }
+
+    @@media(max-width:992px) {
+
+        .hero-title {
+            font-size: 3rem;
+        }
+
+        .hero-left {
+            padding: 50px 35px;
+        }
+
+        .mini-grid {
+            grid-template-columns: 1fr;
+        }
+
+    }
+
+</style>
+
+<nav class="navbar navbar-expand-lg sticky-top">
+
+    <div class="container">
+
+        <a class="navbar-brand" href="#">
+            
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="menu">
+
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Início</a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Coleção</a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Novidades</a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Contato</a>
+                </li>
+
+                <li class="nav-item ms-lg-4">
+                    <a class="nav-link" href="#">
+                        <i class="bi bi-bag"></i>
                     </a>
+                </li>
 
-                    <a href="#beneficios"
-                       class="btn btn-outline-light btn-lg rounded-3 px-4">
+            </ul>
 
-                        Saiba Mais
-                    </a>
+        </div>
+
+    </div>
+
+</nav>
+
+<section class="hero">
+
+    <div class="container">
+
+        <div class="hero-box">
+
+            <div class="row g-0 h-100">
+
+                <div class="col-lg-6">
+
+                    <div class="hero-left">
+
+                        <span class="hero-tag">
+                            nova coleção
+                        </span>
+
+                        <h1 class="hero-title">
+                            Simples.<br>
+                            Elegante.<br>
+                            Premium.
+                        </h1>
+
+                        <p class="hero-text">
+                            Acessórios modernos com visual sofisticado e minimalista.
+                        </p>
+
+                        <div class="hero-buttons">
+
+                            <a href="#" class="btn-dark-custom">
+                                Comprar
+                            </a>
+
+                            <a href="#" class="btn-light-custom">
+                                Explorar
+                            </a>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
-            </div>
+                <div class="col-lg-6">
 
-            <div class="col-lg-6 text-center">
+                    <div class="hero-right">
 
-                <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1200&auto=format&fit=crop"
-                     class="img-fluid rounded-4 shadow-lg"
-                     alt="Loja Virtual">
+                        <video autoplay muted loop playsinline class="hero-video" id="heroVideo">
+                            <source src="/videos/products/Video Home.mp4" type="video/mp4">
+                        </video>
+                        <button class="sound-btn" onclick="toggleSound()">
+                            <i class="bi bi-volume-up"></i>
+                        </button>
+
+                        <div class="floating-card">
+
+                            <h5>
+                                Coleção 2026
+                            </h5>
+
+                            <p>
+                                Design moderno com acabamento premium.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -56,159 +432,92 @@
 
 </section>
 
-<section id="beneficios" class="py-5 bg-light">
+<section class="section">
 
-    <div class="container py-5">
+    <div class="container">
 
-        <div class="text-center mb-5">
+        <h2 class="section-title">
+            Produtos em destaque
+        </h2>
 
-            <h2 class="fw-bold display-5 mb-3">
-                Recursos da Plataforma
-            </h2>
-
-            <p class="text-muted fs-5">
-                Tudo que você precisa para administrar sua loja online.
-            </p>
-
-        </div>
+        <p class="section-text">
+            Os modelos mais procurados da coleção.
+        </p>
 
         <div class="row g-4">
 
-            <div class="col-md-6 col-lg-3">
+            <div class="col-lg-4">
 
-                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+                <div class="product-card">
 
-                    <div class="mb-4">
-                        <i class="bi bi-cart-check fs-1 text-primary"></i>
+                    <img src="/images/products/colar-espirito-santo.jpeg">
+
+                    <div class="product-content">
+
+                        <div class="product-category">
+                            Feminino
+                        </div>
+
+                        <div class="product-name">
+                            Colar Espírito Santo
+                        </div>
+
+                        <div class="product-price">
+                            R$ 60,00
+                        </div>
+
                     </div>
-
-                    <h4 class="fw-bold mb-3">
-                        Carrinho Inteligente
-                    </h4>
-
-                    <p class="text-muted">
-                        Sistema moderno de carrinho para facilitar as compras.
-                    </p>
 
                 </div>
 
             </div>
 
-            <div class="col-md-6 col-lg-3">
+            <div class="col-lg-4">
 
-                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+                <div class="product-card">
 
-                    <div class="mb-4">
-                        <i class="bi bi-credit-card fs-1 text-success"></i>
+                    <img src="/images/products/conjunto-girassol.jpeg">
+
+                    <div class="product-content">
+
+                        <div class="product-category">
+                            Luxo
+                        </div>
+
+                        <div class="product-name">
+                            Conjunto Girassol
+                        </div>
+
+                        <div class="product-price">
+                            R$ 64,00
+                        </div>
+
                     </div>
-
-                    <h4 class="fw-bold mb-3">
-                        Pagamentos Seguros
-                    </h4>
-
-                    <p class="text-muted">
-                        Integração com gateways de pagamento modernos.
-                    </p>
 
                 </div>
 
             </div>
 
-            <div class="col-md-6 col-lg-3">
+            <div class="col-lg-4">
 
-                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
+                <div class="product-card">
 
-                    <div class="mb-4">
-                        <i class="bi bi-phone fs-1 text-danger"></i>
-                    </div>
+                    <img src="/images/products/relicario-oval.jpeg">
 
-                    <h4 class="fw-bold mb-3">
-                        Responsivo
-                    </h4>
+                    <div class="product-content">
 
-                    <p class="text-muted">
-                        Funciona perfeitamente em celulares e computadores.
-                    </p>
+                        <div class="product-category">
+                            Premium
+                        </div>
 
-                </div>
+                        <div class="product-name">
+                            Relicario Oval
+                        </div>
 
-            </div>
+                        <div class="product-price">
+                            R$ 54,00
+                        </div>
 
-            <div class="col-md-6 col-lg-3">
-
-                <div class="card border-0 shadow-sm rounded-4 h-100 text-center p-4">
-
-                    <div class="mb-4">
-                        <i class="bi bi-speedometer2 fs-1 text-warning"></i>
-                    </div>
-
-                    <h4 class="fw-bold mb-3">
-                        Alta Performance
-                    </h4>
-
-                    <p class="text-muted">
-                        Aplicação rápida desenvolvida com ASP.NET Core.
-                    </p>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-<section class="py-5">
-
-    <div class="container py-5">
-
-        <div class="row align-items-center g-5">
-
-            <div class="col-lg-6">
-
-                <img src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1200&auto=format&fit=crop"
-                     class="img-fluid rounded-4 shadow"
-                     alt="Dashboard">
-
-            </div>
-
-            <div class="col-lg-6">
-
-                <span class="badge bg-dark px-3 py-2 rounded-pill mb-3">
-                    Administração Completa
-                </span>
-
-                <h2 class="display-5 fw-bold mb-4">
-                    Controle total da sua loja
-                </h2>
-
-                <p class="text-muted fs-5 mb-4">
-                    Gerencie produtos, estoque, preços e pedidos através
-                    de um painel administrativo moderno e intuitivo.
-                </p>
-
-                <div class="d-flex flex-column gap-3">
-
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        <span>Cadastro rápido de produtos</span>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        <span>Gerenciamento de estoque</span>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        <span>Interface moderna e responsiva</span>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-check-circle-fill text-success fs-4"></i>
-                        <span>Integração com banco MySQL</span>
                     </div>
 
                 </div>
@@ -221,26 +530,138 @@
 
 </section>
 
-<section class="bg-dark text-white py-5">
+<section class="section pt-0">
 
-    <div class="container py-5 text-center">
+    <div class="container">
 
-        <h2 class="display-5 fw-bold mb-4">
-            Comece sua loja virtual agora
-        </h2>
+        <div class="video-section">
 
-        <p class="lead text-light-emphasis mb-5">
-            Estrutura moderna utilizando ASP.NET MVC, Entity Framework Core e MySQL.
-        </p>
+            <div class="row g-0 align-items-center">
 
-        <a href="/Products"
-           class="btn btn-light btn-lg rounded-3 px-5 shadow-sm">
+                <div class="col-lg-5">
 
-            <i class="bi bi-shop me-2"></i>
-            Acessar Produtos
-        </a>
+                    <div class="video-content">
+
+                        <h2>
+                            Produtos em movimento
+                        </h2>
+
+                        <p>
+                            Utilize vídeos curtos mostrando detalhes reais dos produtos.
+                        </p>
+
+                        <a href="#" class="btn-light-custom">
+                            Assistir
+                        </a>
+
+                    </div>
+
+                </div>
+
+                <div class="col-lg-7">
+
+                    <div class="video-wrapper">
+
+                        <video autoplay muted loop playsinline>
+                            <source src="/videos/showcase.mp4" type="video/mp4">
+                        </video>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
 
     </div>
 
 </section>
+
+<section class="section pt-0">
+
+    <div class="container">
+
+        <div class="mini-grid">
+
+            <div class="mini-card">
+
+                <img src="/images/cat1.jpg">
+
+                <div class="mini-overlay">
+                    <h4>Feminino</h4>
+                </div>
+
+            </div>
+
+            <div class="mini-card">
+
+                <img src="/images/cat2.jpg">
+
+                <div class="mini-overlay">
+                    <h4>Masculino</h4>
+                </div>
+
+            </div>
+
+            <div class="mini-card">
+
+                <img src="/images/cat3.jpg">
+
+                <div class="mini-overlay">
+                    <h4>Novidades</h4>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<footer>
+
+    <div class="container">
+
+        <div class="footer-box">
+
+            <div class="row align-items-center">
+
+                <div class="col-lg-6">
+
+                    <div class="footer-title">
+                        ANGEL
+                    </div>
+
+                    <p>
+                        Minimalismo, sofisticação e modernidade.
+                    </p>
+
+                </div>
+
+                <div class="col-lg-6 text-lg-end">
+
+                    <div class="footer-icons">
+                        <i class="bi bi-instagram"></i>
+                        <i class="bi bi-facebook"></i>
+                        <i class="bi bi-whatsapp"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</footer>
+
+<script>
+    function toggleSound() {
+        const video = document.getElementById('heroVideo');
+        video.muted = !video.muted;
+    }
+</script>
 

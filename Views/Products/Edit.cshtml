@@ -26,9 +26,13 @@
 
                     </div>
 
-                    <form asp-action="Edit">
+                    <form asp-action="Edit" enctype="multipart/form-data">
 
                         <input type="hidden" asp-for="Id" />
+
+                        <div class="mb-3 text-center">
+                            <img src="@Model.ImageUrl" width="120" class="mb-3 rounded shadow" />
+                        </div>
 
                         <div class="mb-4">
 
@@ -76,11 +80,15 @@
 
                         <div class="mb-4">
 
-                            <label asp-for="ImageUrl"
-                                   class="form-label fw-semibold"></label>
+                            <label class="form-label fw-semibold">
+                                Trocar Imagem
+                            </label>
 
-                            <input asp-for="ImageUrl"
-                                   class="form-control form-control-lg rounded-3" />
+                            <input type="file" name="imageFile" class="form-control form-control-lg rounded-3" />
+
+                            <span class="text-muted small">
+                                Deixe vazio para manter a imagem atual
+                            </span>
 
                         </div>
 

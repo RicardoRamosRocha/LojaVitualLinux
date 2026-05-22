@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using LojaVirtual.Data;
 using LojaVirtual.Models;
+using Microsoft.AspNetCore.Hosting;
 
 namespace LojaVirtual.Controllers
 {
@@ -14,9 +15,12 @@ namespace LojaVirtual.Controllers
     {
         private readonly AppDbContext _context;
 
-        public ProductsController(AppDbContext context)
+        private readonly IWebHostEnvironment _webHostEnvironment;
+
+        public ProductsController(AppDbContext context, IWebHostEnvironment webHostEnvironment)
         {
             _context = context;
+            _webHostEnvironment = webHostEnvironment;
         }
 
         // GET: Products
@@ -49,21 +53,70 @@ namespace LojaVirtual.Controllers
             return View();
         }
 
-        // POST: Products/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,Price,Description,Stock,ImageUrl")] Product product)
+[ValidateAntiForgeryToken]
+public async Task<IActionResult> Create(
+    Product product,
+    IFormFile imageFile,
+    IFormFile videoFile)
+{
+    if (ModelState.IsValid)
+    {
+        // IMAGEM
+        if (imageFile != null && imageFile.Length > 0)
         {
-            if (ModelState.IsValid)
+            var imageName = Guid.NewGuid() +
+                            Path.GetExtension(imageFile.FileName);
+
+            var imageFolder = Path.Combine(
+                _webHostEnvironment.WebRootPath,
+                "images/products");
+
+            if (!Directory.Exists(imageFolder))
+                Directory.CreateDirectory(imageFolder);
+
+            var imagePath = Path.Combine(imageFolder, imageName);
+
+            using (var stream = new FileStream(imagePath, FileMode.Create))
             {
-                _context.Add(product);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                await imageFile.CopyToAsync(stream);
             }
-            return View(product);
+
+            product.ImageUrl = "/images/products/" + imageName;
         }
+
+        // VIDEO
+        if (videoFile != null && videoFile.Length > 0)
+        {
+            var videoName = Guid.NewGuid() +
+                            Path.GetExtension(videoFile.FileName);
+
+            var videoFolder = Path.Combine(
+                _webHostEnvironment.WebRootPath,
+                "videos/products");
+
+            if (!Directory.Exists(videoFolder))
+                Directory.CreateDirectory(videoFolder);
+
+            var videoPath = Path.Combine(videoFolder, videoName);
+
+            using (var stream = new FileStream(videoPath, FileMode.Create))
+            {
+                await videoFile.CopyToAsync(stream);
+            }
+
+            product.VideoUrl = "/videos/products/" + videoName;
+        }
+
+        _context.Add(product);
+
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    return View(product);
+}
 
         // GET: Products/Edit/5
         public async Task<IActionResult> Edit(int? id)
@@ -86,36 +139,68 @@ namespace LojaVirtual.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Price,Description,Stock,ImageUrl")] Product product)
+        public async Task<IActionResult> Edit(
+     int id,
+     Product product,
+     IFormFile imageFile)
         {
-            if (id != product.Id)
-            {
+            var existing = await _context.Products.FindAsync(id);
+
+            if (existing == null)
                 return NotFound();
-            }
 
-            if (ModelState.IsValid)
+            existing.Name = product.Name;
+            existing.Price = product.Price;
+            existing.Description = product.Description;
+            existing.Stock = product.Stock;
+            existing.CategoryId = product.CategoryId;
+
+            // NOVA IMAGEM
+            if (imageFile != null && imageFile.Length > 0)
             {
-                try
+                // REMOVE IMAGEM ANTIGA
+                if (!string.IsNullOrEmpty(existing.ImageUrl))
                 {
-                    _context.Update(product);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!ProductExists(product.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(product);
-        }
+                    var oldImagePath = Path.Combine(
+                        _webHostEnvironment.WebRootPath,
+                        existing.ImageUrl.TrimStart('/'));
 
+                    if (System.IO.File.Exists(oldImagePath))
+                    {
+                        System.IO.File.Delete(oldImagePath);
+                    }
+                }
+
+                // CRIA NOME NOVO
+                var fileName = Guid.NewGuid() +
+                               Path.GetExtension(imageFile.FileName);
+
+                // PASTA
+                var folder = Path.Combine(
+                    _webHostEnvironment.WebRootPath,
+                    "images/products");
+
+                // GARANTE EXISTÊNCIA
+                if (!Directory.Exists(folder))
+                    Directory.CreateDirectory(folder);
+
+                // CAMINHO FINAL
+                var path = Path.Combine(folder, fileName);
+
+                // SALVA NOVA IMAGEM
+                using (var stream = new FileStream(path, FileMode.Create))
+                {
+                    await imageFile.CopyToAsync(stream);
+                }
+
+                // SALVA URL NO BANCO
+                existing.ImageUrl = "/images/products/" + fileName;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
+        }
         // GET: Products/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
@@ -134,24 +219,35 @@ namespace LojaVirtual.Controllers
             return View(product);
         }
 
-        // POST: Products/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var product = await _context.Products.FindAsync(id);
+
             if (product != null)
             {
+                // Remove imagem física
+                if (!string.IsNullOrEmpty(product.ImageUrl))
+                {
+                    var imagePath = Path.Combine(
+                        _webHostEnvironment.WebRootPath,
+                        product.ImageUrl.TrimStart('/'));
+
+                    if (System.IO.File.Exists(imagePath))
+                    {
+                        System.IO.File.Delete(imagePath);
+                    }
+                }
+
+                // Remove produto do banco
                 _context.Products.Remove(product);
+
+                await _context.SaveChangesAsync();
             }
 
-            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
-
-        private bool ProductExists(int id)
-        {
-            return _context.Products.Any(e => e.Id == id);
-        }
     }
+    
 }
