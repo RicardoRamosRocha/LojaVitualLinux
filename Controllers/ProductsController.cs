@@ -53,69 +53,81 @@ namespace LojaVirtual.Controllers
             return View();
         }
 
-        [HttpPost]
+  [HttpPost]
 [ValidateAntiForgeryToken]
 public async Task<IActionResult> Create(
     Product product,
-    IFormFile imageFile,
-    IFormFile videoFile)
+    IFormFile? imageFile,
+    IFormFile? videoFile)
 {
-    if (ModelState.IsValid)
+    try
     {
+        // =========================
         // IMAGEM
+        // =========================
         if (imageFile != null && imageFile.Length > 0)
         {
-            var imageName = Guid.NewGuid() +
-                            Path.GetExtension(imageFile.FileName);
+            var imageName =
+                Guid.NewGuid() + Path.GetExtension(imageFile.FileName);
 
-            var imageFolder = Path.Combine(
-                _webHostEnvironment.WebRootPath,
-                "images/products");
+            var imageFolder =
+                Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "wwwroot/images/products");
 
-            if (!Directory.Exists(imageFolder))
-                Directory.CreateDirectory(imageFolder);
+            // cria pasta automaticamente
+            Directory.CreateDirectory(imageFolder);
 
-            var imagePath = Path.Combine(imageFolder, imageName);
+            var imagePath =
+                Path.Combine(imageFolder, imageName);
 
             using (var stream = new FileStream(imagePath, FileMode.Create))
             {
                 await imageFile.CopyToAsync(stream);
             }
 
-            product.ImageUrl = "/images/products/" + imageName;
+            product.ImageUrl =
+                "/images/products/" + imageName;
         }
 
+        // =========================
         // VIDEO
+        // =========================
         if (videoFile != null && videoFile.Length > 0)
         {
-            var videoName = Guid.NewGuid() +
-                            Path.GetExtension(videoFile.FileName);
+            var videoName =
+                Guid.NewGuid() + Path.GetExtension(videoFile.FileName);
 
-            var videoFolder = Path.Combine(
-                _webHostEnvironment.WebRootPath,
-                "videos/products");
+            var videoFolder =
+                Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "wwwroot/videos/products");
 
-            if (!Directory.Exists(videoFolder))
-                Directory.CreateDirectory(videoFolder);
+            // cria pasta automaticamente
+            Directory.CreateDirectory(videoFolder);
 
-            var videoPath = Path.Combine(videoFolder, videoName);
+            var videoPath =
+                Path.Combine(videoFolder, videoName);
 
             using (var stream = new FileStream(videoPath, FileMode.Create))
             {
                 await videoFile.CopyToAsync(stream);
             }
 
-            product.VideoUrl = "/videos/products/" + videoName;
+            product.VideoUrl =
+                "/videos/products/" + videoName;
         }
 
-        _context.Add(product);
+        _context.Products.Add(product);
 
         await _context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
-
-    return View(product);
+    catch (Exception ex)
+    {
+        return Content(ex.ToString());
+    }
 }
 
         // GET: Products/Edit/5

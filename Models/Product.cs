@@ -12,7 +12,7 @@ public class Product
 
     public int Stock { get; set; }
 
-    public string ImageUrl { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; } = string.Empty;
 
     public string? VideoUrl { get; set; } = string.Empty;
 
