@@ -1,6 +1,7 @@
 using LojaVirtual.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using LojaVirtual.ViewModels;
 
 namespace LojaVirtual.Controllers;
 
@@ -12,14 +13,18 @@ public class HomeController : Controller
     {
         _context = context;
     }
-
     public async Task<IActionResult> Index()
     {
-        var products = await _context.Products.ToListAsync();
+        var viewModel = new HomeViewModel
+        {
+            FeaturedProducts = await _context.Products
+                .OrderByDescending(p => p.Id)
+                .Take(6)
+                .ToListAsync()
+        };
 
-        return View(products);
+        return View(viewModel);
     }
-
     public IActionResult Privacy()
     {
         return View();
