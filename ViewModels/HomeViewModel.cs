@@ -1,8 +1,10 @@
 using LojaVirtual.Models;
 
-namespace LojaVirtual.ViewModels;
-
-public class HomeViewModel
+namespace LojaVirtual.ViewModels
 {
-    public IEnumerable<Product> FeaturedProducts { get; set; }
+    public class HomeViewModel
+    {
+        public List<Product> FeaturedProducts { get; set; }
+            = new();
+    }
 }

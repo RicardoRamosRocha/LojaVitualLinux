@@ -6,93 +6,96 @@
 
 <partial name="_Navbar" />
 
-<section class="product-details-section">
+<section class="py-5">
 
     <div class="container">
 
-        <div class="product-details-box">
+        <div class="row g-5 align-items-center">
 
-            <div class="row g-5 align-items-center">
+            <!-- MEDIA -->
+            <div class="col-lg-6">
 
-                <!-- IMAGEM -->
-                <div class="col-lg-6">
+                <div class="bg-white rounded-4 shadow-sm p-3">
 
-                    <div class="product-image-wrapper">
+                    @{
+                        var video = Model.ProductMedias?
+                            .FirstOrDefault(x => x.Type == "video")?.Url;
 
-                        <img src="@Model.ImageUrl"
-                             alt="@Model.Name"
-                             class="product-details-image">
+                        var images = Model.ProductMedias?
+                            .Where(x => x.Type == "image")
+                            .ToList();
+                    }
 
-                    </div>
+                    @if (!string.IsNullOrEmpty(video))
+                    {
+                        <video controls class="w-100 rounded-4">
+                            <source src="@video" type="video/mp4">
+                        </video>
+                    }
+                    else if (images != null && images.Any())
+                    {
+                        <img src="@images.First().Url"
+                             class="img-fluid rounded-4 w-100"
+                             alt="@Model.Name" />
+                    }
+                    else
+                    {
+                        <div class="text-muted text-center py-5">
+                            Sem mídia disponível
+                        </div>
+                    }
 
                 </div>
 
-                <!-- INFO -->
-                <div class="col-lg-6">
+            </div>
 
-                    <div class="product-details-content">
+            <!-- INFO -->
+            <div class="col-lg-6">
 
-                        <span class="product-details-category">
-                            Angel Acessórios
-                        </span>
+                <span class="badge bg-dark rounded-pill px-3 py-2 mb-3">
+                    Angel Acessórios
+                </span>
 
-                        <h1 class="product-details-title">
-                            @Model.Name
-                        </h1>
+                <h1 class="fw-bold display-5 mb-3">
+                    @Model.Name
+                </h1>
 
-                        <div class="product-details-price">
+                <div class="fs-2 fw-bold text-dark mb-4">
+                    R$ @Model.Price
+                </div>
 
-                            @Model.Price.ToString("C")
+                <p class="text-muted fs-5 mb-4">
+                    @Model.Description
+                </p>
 
-                        </div>
+                <div class="d-flex align-items-center gap-3 mb-5">
 
-                        <p class="product-details-description">
+                    <span class="fw-semibold">Estoque:</span>
 
-                            @Model.Description
+                    <span class="badge bg-success px-3 py-2 rounded-pill">
+                        @Model.Stock disponível
+                    </span>
 
-                        </p>
+                </div>
 
-                        <!-- ESTOQUE -->
-                        <div class="product-stock mb-4">
+                <!-- BOTÕES -->
+                <div class="d-flex flex-wrap gap-3">
 
-                            @if (Model.Stock > 0)
-                            {
-                                <span class="badge bg-success px-3 py-2 rounded-pill">
-                                    Em estoque
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-danger px-3 py-2 rounded-pill">
-                                    Indisponível
-                                </span>
-                            }
+                    <a href="https://wa.me/5531988078334?text=Olá, tenho interesse no produto @Model.Name"
+                       target="_blank"
+                       class="btn btn-dark btn-lg rounded-pill px-5">
 
-                        </div>
+                        <i class="bi bi-whatsapp me-2"></i>
+                        Comprar no WhatsApp
 
-                        <!-- BOTÕES -->
-                        <div class="product-buttons">
+                    </a>
 
-                            <a href="https://wa.me/5531999999999?text=Olá,%20tenho%20interesse%20no%20produto%20@Model.Name"
-                               target="_blank"
-                               class="btn btn-dark-custom">
+                    <a asp-action="Index"
+                       class="btn btn-outline-dark btn-lg rounded-pill px-5">
 
-                                <i class="bi bi-whatsapp me-2"></i>
-                                Comprar no WhatsApp
+                        Voltar
 
-                            </a>
-
-                            <a asp-controller="Home"
-                               asp-action="Index"
-                               class="btn btn-light-custom">
-
-                                Voltar
-
-                            </a>
-
-                        </div>
-
-                    </div>
+                    </a>
 
                 </div>
 

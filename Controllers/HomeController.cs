@@ -13,18 +13,20 @@ public class HomeController : Controller
     {
         _context = context;
     }
-    public async Task<IActionResult> Index()
-    {
-        var viewModel = new HomeViewModel
-        {
-            FeaturedProducts = await _context.Products
-                .OrderByDescending(p => p.Id)
-                .Take(6)
-                .ToListAsync()
-        };
+   public async Task<IActionResult> Index()
+{
+    var products = await _context.Products
+        .Include(p => p.ProductMedias)
+        .ToListAsync();
 
-        return View(viewModel);
-    }
+    var model = new HomeViewModel
+    {
+        FeaturedProducts = products
+    };
+
+    return View(model);
+}
+    
     public IActionResult Privacy()
     {
         return View();

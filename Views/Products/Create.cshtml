@@ -103,72 +103,62 @@
 
                                 <div class="col-md-6 mb-4">
 
-                                    <label asp-for="Stock"
-                                           class="form-label fw-semibold">
+                                    <label asp-for="Stock" class="form-label fw-semibold">
                                         Estoque
                                     </label>
 
-                                    <input asp-for="Stock"
-                                           class="form-control form-control-lg rounded-3"
+                                    <input asp-for="Stock" class="form-control form-control-lg rounded-3"
                                            placeholder="0" />
 
-                                    <span asp-validation-for="Stock"
-                                          class="text-danger small">
+                                    <span asp-validation-for="Stock" class="text-danger small">
                                     </span>
 
                                 </div>
 
                             </div>
 
-                            <!-- IMAGEM -->
+                            <!-- IMAGENS -->
                             <div class="mb-4">
 
                                 <label class="form-label fw-semibold">
-                                    Imagem do Produto
+                                    Imagens do Produto
                                 </label>
 
-                                <input type="file"
-                                       name="imageFile"
-                                       class="form-control form-control-lg rounded-3"
-                                       accept="image/*" />
+                                <input type="file" name="imageFiles" multiple accept="image/*"
+                                       class="form-control form-control-lg rounded-3" />
 
                                 <div class="form-text">
-                                    JPG, PNG ou WEBP
+                                    Você pode selecionar várias imagens.
                                 </div>
 
                             </div>
 
-                            <!-- VÍDEO -->
+                            <!-- VÍDEOS -->
                             <div class="mb-5">
 
                                 <label class="form-label fw-semibold">
-                                    Vídeo do Produto
+                                    Vídeos do Produto
                                 </label>
 
-                                <input type="file"
-                                       name="videoFile"
-                                       class="form-control form-control-lg rounded-3"
-                                       accept="video/mp4" />
+                                <input type="file" name="videoFiles" multiple accept="video/mp4"
+                                       class="form-control form-control-lg rounded-3" />
 
                                 <div class="form-text">
-                                    Vídeo MP4 para reels e vitrine
+                                    Você pode selecionar vários vídeos MP4.
                                 </div>
 
                             </div>
-
                             <!-- BOTÕES -->
                             <div class="d-flex flex-wrap gap-3">
 
-                                <button type="submit"
-                                        class="btn btn-dark btn-lg rounded-pill px-5">
+                                <button type="submit" class="btn btn-dark btn-lg rounded-pill px-5">
 
                                     <i class="bi bi-check-circle me-2"></i>
                                     Salvar Produto
 
                                 </button>
 
-                                <a asp-action="Index"
-                                   class="btn btn-outline-dark btn-lg rounded-pill px-5">
+                                <a asp-action="Index" class="btn btn-outline-dark btn-lg rounded-pill px-5">
 
                                     Voltar
 

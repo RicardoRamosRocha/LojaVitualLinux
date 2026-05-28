@@ -1,22 +1,30 @@
-namespace LojaVirtual.Models;
+using System.ComponentModel.DataAnnotations;
 
-public class Product
+namespace LojaVirtual.Models
 {
-    public int Id { get; set; }
+    public class Product
+    {
+        public int Id { get; set; }
 
-    public string Name { get; set; } = string.Empty;
+        [Required]
+        public string Name { get; set; } = string.Empty;
 
-    public decimal Price { get; set; }
+        public string? Description { get; set; }
 
-    public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
 
-    public int Stock { get; set; }
+        public int Stock { get; set; }
 
-    public string? ImageUrl { get; set; } = string.Empty;
+        // COMPATIBILIDADE TEMPORÁRIA
+        public string? ImageUrl { get; set; }
 
-    public string? VideoUrl { get; set; } = string.Empty;
+        public string? VideoUrl { get; set; }
 
-    public int? CategoryId { get; set; }
+        public int? CategoryId { get; set; }  
 
-    public Category? Category { get; set; }
+        // GALERIA
+        public ICollection<ProductMedia> ProductMedias { get; set; }
+            = new List<ProductMedia>();
+         
+    }
 }

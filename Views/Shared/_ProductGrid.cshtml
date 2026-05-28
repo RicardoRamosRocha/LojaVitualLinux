@@ -6,13 +6,9 @@
 
         <div class="section-header">
 
-            <h2>
-                Produtos em destaque
-            </h2>
+            <h2>Produtos em destaque</h2>
 
-            <p>
-                Descubra os modelos mais desejados da coleção.
-            </p>
+            <p>Descubra os modelos mais desejados da coleção.</p>
 
         </div>
 
@@ -20,8 +16,11 @@
 
             @if (Model != null && Model.Any())
             {
-                @foreach (var item in Model)
+                foreach (var item in Model)
                 {
+                    var image = item.ProductMedias?
+                        .FirstOrDefault(x => x.Type == "image")?.Url;
+
                     <div class="col-md-6 col-lg-4">
 
                         <a asp-controller="Products"
@@ -31,9 +30,9 @@
 
                             <div class="product-card h-100">
 
-                                <img src="@item.ImageUrl"
+                                <img src="@(image ?? "/images/placeholder.png")"
                                      alt="@item.Name"
-                                     loading="lazy">
+                                     class="product-image" />
 
                                 <div class="product-content">
 
@@ -66,13 +65,9 @@
             {
                 <div class="col-12 text-center py-5">
 
-                    <h4 class="fw-bold">
-                        Nenhum produto cadastrado
-                    </h4>
+                    <h4 class="fw-bold">Nenhum produto cadastrado</h4>
 
-                    <p class="text-muted">
-                        Adicione produtos no painel administrativo.
-                    </p>
+                    <p class="text-muted">Adicione produtos no painel administrativo.</p>
 
                 </div>
             }
