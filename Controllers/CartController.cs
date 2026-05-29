@@ -78,5 +78,46 @@ namespace LojaVirtual.Controllers
 
             return RedirectToAction("Index");
         }
+        public IActionResult Increase(int id)
+        {
+            var cart = HttpContext.Session
+                .GetObjectFromJson<List<CartItem>>("cart")
+                ?? new List<CartItem>();
+
+            var item = cart.FirstOrDefault(x => x.ProductId == id);
+
+            if (item != null)
+            {
+                item.Quantity++;
+            }
+
+            HttpContext.Session.SetObjectAsJson("cart", cart);
+
+            return RedirectToAction("Index");
+        }
+
+        public IActionResult Decrease(int id)
+        {
+            var cart = HttpContext.Session
+                .GetObjectFromJson<List<CartItem>>("cart")
+                ?? new List<CartItem>();
+
+            var item = cart.FirstOrDefault(x => x.ProductId == id);
+
+            if (item != null)
+            {
+                item.Quantity--;
+
+                if (item.Quantity <= 0)
+                {
+                    cart.Remove(item);
+                }
+            }
+
+            HttpContext.Session.SetObjectAsJson("cart", cart);
+
+            return RedirectToAction("Index");
+        }
+
     }
 }

@@ -40,13 +40,38 @@
 
                         </div>
 
-                        <div class="col-md-2">
+                        <div class="col-md-3">
 
-                            Qtd: @item.Quantity
+                            <div class="d-flex align-items-center gap-2">
+
+                                <!-- DIMINUIR -->
+                                <a asp-action="Decrease" asp-route-id="@item.ProductId"
+                                   class="btn btn-outline-dark rounded-circle">
+
+                                    <i class="bi bi-dash"></i>
+
+                                </a>
+
+                                <!-- QUANTIDADE -->
+                                <span class="fw-bold fs-5 px-2">
+
+                                    @item.Quantity
+
+                                </span>
+
+                                <!-- AUMENTAR -->
+                                <a asp-action="Increase" asp-route-id="@item.ProductId"
+                                   class="btn btn-outline-dark rounded-circle">
+
+                                    <i class="bi bi-plus"></i>
+
+                                </a>
+
+                            </div>
 
                         </div>
 
-                        <div class="col-md-2 fw-bold">
+                        <div class="col-md-1 fw-bold">
 
                             @((item.Price * item.Quantity).ToString("C"))
 
