@@ -66,3 +66,16 @@
     transform: scale(1.05);
     background: #222;
 }
+
+.nav-cart {
+    position: relative;
+    transition: 0.3s;
+}
+
+.nav-cart:hover {
+    color: #c59d5f !important;
+}
+
+.nav-cart .badge {
+    font-size: 0.7rem;
+}

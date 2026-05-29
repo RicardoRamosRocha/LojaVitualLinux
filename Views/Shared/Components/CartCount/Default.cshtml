@@ -1,0 +1,16 @@
+@model int
+
+<div class="position-relative">
+
+    <i class="bi bi-bag-heart-fill"></i>
+
+    @if (Model > 0)
+    {
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+
+            @Model
+
+        </span>
+    }
+
+</div>

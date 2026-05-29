@@ -43,9 +43,9 @@
 
                 <li class="nav-item ms-lg-3">
 
-                    <a asp-controller="Cart" asp-action="Index" class="nav-icon">
+                    <a asp-controller="Cart" asp-action="Index" class="nav-cart text-dark text-decoration-none fs-4">
 
-                        <i class="bi bi-cart"></i>
+                        @await Component.InvokeAsync("CartCount")
 
                     </a>
 
