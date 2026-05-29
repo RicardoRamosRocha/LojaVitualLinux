@@ -1,5 +1,6 @@
 using LojaVirtual.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,11 @@ if (!app.Environment.IsDevelopment())
 
     app.UseHsts();
 }
+
+var cultureInfo = new CultureInfo("pt-BR");
+
+CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
 //app.UseHttpsRedirection();
 

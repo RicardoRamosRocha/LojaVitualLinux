@@ -6,50 +6,126 @@
 
 <partial name="_Navbar" />
 
+<div style="height:120px;"></div>
+
 <section class="py-5">
 
     <div class="container">
 
-        <div class="row g-5 align-items-center">
+        <div class="row g-5">
 
-            <!-- MEDIA -->
+            <!-- GALERIA -->
             <div class="col-lg-6">
 
-                <div class="bg-white rounded-4 shadow-sm p-3">
+                @if (Model.ProductMedias != null &&
+                     Model.ProductMedias.Any())
+                {
+                    <div id="productCarousel"
+                         class="carousel slide">
 
-                    @{
-                        var video = Model.ProductMedias?
-                            .FirstOrDefault(x => x.Type == "video")?.Url;
+                        <!-- SLIDES -->
+                        <div class="carousel-inner rounded-4 shadow">
 
-                        var images = Model.ProductMedias?
-                            .Where(x => x.Type == "image")
-                            .ToList();
-                    }
+                            @{
+                                var medias = Model.ProductMedias.ToList();
+                            }
 
-                    @if (!string.IsNullOrEmpty(video))
-                    {
-                        <video controls class="w-100 rounded-4">
-                            <source src="@video" type="video/mp4">
-                        </video>
-                    }
-                    else if (images != null && images.Any())
-                    {
-                        <img src="@images.First().Url"
-                             class="img-fluid rounded-4 w-100"
-                             alt="@Model.Name" />
-                    }
-                    else
-                    {
-                        <div class="text-muted text-center py-5">
-                            Sem mídia disponível
+                            @for (int i = 0; i < medias.Count; i++)
+                            {
+                                var media = medias[i];
+
+                                <div class="carousel-item @(i == 0 ? "active" : "")">
+
+                                    @if (media.Type == "image")
+                                    {
+                                        <img src="@media.Url"
+                                             class="d-block w-100"
+                                             alt="@Model.Name"
+                                             style="height:650px;
+                                                    object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <video controls
+                                               class="w-100"
+                                               style="height:650px;
+                                                      object-fit:cover;">
+
+                                            <source src="@media.Url"
+                                                    type="video/mp4">
+
+                                        </video>
+                                    }
+
+                                </div>
+                            }
+
                         </div>
-                    }
 
-                </div>
+                        <!-- BOTÃO ANTERIOR -->
+                        <button class="carousel-control-prev"
+                                type="button"
+                                data-bs-target="#productCarousel"
+                                data-bs-slide="prev">
+
+                            <span class="carousel-control-prev-icon"></span>
+
+                        </button>
+
+                        <!-- BOTÃO PRÓXIMO -->
+                        <button class="carousel-control-next"
+                                type="button"
+                                data-bs-target="#productCarousel"
+                                data-bs-slide="next">
+
+                            <span class="carousel-control-next-icon"></span>
+
+                        </button>
+
+                    </div>
+
+                    <!-- MINIATURAS -->
+                    <div class="d-flex gap-3 mt-4 flex-wrap">
+
+                        @for (int i = 0; i < medias.Count; i++)
+                        {
+                            var media = medias[i];
+
+                            <button type="button"
+                                    data-bs-target="#productCarousel"
+                                    data-bs-slide-to="@i"
+                                    class="border-0 bg-transparent p-0">
+
+                                @if (media.Type == "image")
+                                {
+                                    <img src="@media.Url"
+                                         style="width:90px;
+                                                height:90px;
+                                                object-fit:cover;
+                                                border-radius:16px;
+                                                border:2px solid #ddd;" />
+                                }
+                                else
+                                {
+                                    <div class="bg-dark text-white d-flex align-items-center justify-content-center"
+                                         style="width:90px;
+                                                height:90px;
+                                                border-radius:16px;">
+
+                                        <i class="bi bi-play-fill fs-2"></i>
+
+                                    </div>
+                                }
+
+                            </button>
+                        }
+
+                    </div>
+                }
 
             </div>
 
-            <!-- INFO -->
+            <!-- INFORMAÇÕES -->
             <div class="col-lg-6">
 
                 <span class="badge bg-dark rounded-pill px-3 py-2 mb-3">
@@ -60,28 +136,44 @@
                     @Model.Name
                 </h1>
 
-                <div class="fs-2 fw-bold text-dark mb-4">
-                    R$ @Model.Price
+                <div class="fs-1 fw-bold text-dark mb-4">
+
+                    @Model.Price.ToString("C")
+
                 </div>
 
                 <p class="text-muted fs-5 mb-4">
+
                     @Model.Description
+
                 </p>
 
-                <div class="d-flex align-items-center gap-3 mb-5">
+                <div class="mb-5">
 
-                    <span class="fw-semibold">Estoque:</span>
+                    @if (Model.Stock > 0)
+                    {
+                        <span class="badge bg-success px-4 py-3 rounded-pill fs-6">
 
-                    <span class="badge bg-success px-3 py-2 rounded-pill">
-                        @Model.Stock disponível
-                    </span>
+                            <i class="bi bi-check-circle me-2"></i>
+                            Produto disponível
+
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger px-4 py-3 rounded-pill fs-6">
+
+                            Sem estoque
+
+                        </span>
+                    }
 
                 </div>
 
                 <!-- BOTÕES -->
                 <div class="d-flex flex-wrap gap-3">
 
-                    <a href="https://wa.me/5531988078334?text=Olá, tenho interesse no produto @Model.Name"
+                    <a href="https://wa.me/5531988078334?text=Olá,%20tenho%20interesse%20no%20produto%20@Model.Name"
                        target="_blank"
                        class="btn btn-dark btn-lg rounded-pill px-5">
 

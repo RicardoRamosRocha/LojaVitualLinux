@@ -165,11 +165,15 @@ namespace LojaVirtual.Controllers
                 return NotFound();
             }
 
-            var product = await _context.Products.FindAsync(id);
+            var product = await _context.Products
+                .Include(p => p.ProductMedias)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
             if (product == null)
             {
                 return NotFound();
             }
+
             return View(product);
         }
 
@@ -331,6 +335,40 @@ namespace LojaVirtual.Controllers
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
+
         }
+
+        public async Task<IActionResult> DeleteMedia(int id)
+        {
+            var media = await _context.ProductMedias
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (media == null)
+                return NotFound();
+
+            // REMOVE ARQUIVO FÍSICO
+            var filePath = Path.Combine(
+                _webHostEnvironment.WebRootPath,
+                media.Url.TrimStart('/'));
+
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+
+            // REMOVE DO BANCO
+            _context.ProductMedias.Remove(media);
+
+            await _context.SaveChangesAsync();
+
+            return Redirect(Request.Headers["Referer"].ToString());
+        }
+
+
+
+
+
     }
+
 }
+
