@@ -1,0 +1,127 @@
+@model List<LojaVirtual.Models.CartItem>
+
+@{
+    ViewData["Title"] = "Carrinho";
+}
+
+<partial name="_Navbar" />
+
+<div class="container py-5">
+
+    <h1 class="fw-bold mb-5">
+        Meu Carrinho
+    </h1>
+
+    @if (Model.Any())
+    {
+        decimal total = 0;
+
+        foreach (var item in Model)
+        {
+            total += item.Price * item.Quantity;
+
+            <div class="card mb-4 border-0 shadow-sm rounded-4">
+
+                <div class="card-body">
+
+                    <div class="row align-items-center">
+
+                        <div class="col-md-2">
+
+                            <img src="@item.ImageUrl" class="img-fluid rounded-3" />
+
+                        </div>
+
+                        <div class="col-md-4">
+
+                            <h5 class="fw-bold">
+                                @item.Name
+                            </h5>
+
+                        </div>
+
+                        <div class="col-md-2">
+
+                            Qtd: @item.Quantity
+
+                        </div>
+
+                        <div class="col-md-2 fw-bold">
+
+                            @((item.Price * item.Quantity).ToString("C"))
+
+                        </div>
+
+                        <div class="col-md-2 text-end">
+
+                            <a asp-action="Remove" asp-route-id="@item.ProductId" class="btn btn-danger rounded-pill">
+
+                                Remover
+
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        }
+
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-4 mt-5">
+
+            <!-- CONTINUAR COMPRANDO -->
+            <div class="d-flex flex-wrap gap-3">
+
+                <a asp-controller="Home" asp-action="Index" class="btn btn-outline-dark btn-lg rounded-pill px-5">
+
+                    <i class="bi bi-arrow-left me-2"></i>
+                    Continuar Comprando
+
+                </a>
+
+                <a asp-controller="Products" asp-action="Index" class="btn btn-outline-secondary btn-lg rounded-pill px-5">
+
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Adicionar Mais Produtos
+
+                </a>
+
+            </div>
+
+            <!-- TOTAL + PAGAMENTO -->
+            <div class="text-lg-end">
+
+                <h2 class="fw-bold mb-3">
+
+                    Total:
+                    @total.ToString("C")
+
+                </h2>
+
+                <a href="https://wa.me/5531988078334" target="_blank" class="btn btn-dark btn-lg rounded-pill px-5">
+
+                    <i class="bi bi-whatsapp me-2"></i>
+                    Finalizar Pedido
+
+                </a>
+
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-5">
+
+            <h3>
+                Seu carrinho está vazio
+            </h3>
+
+        </div>
+    }
+
+</div>
+
+<partial name="_Footer" />

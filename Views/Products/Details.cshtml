@@ -173,12 +173,11 @@
                 <!-- BOTÕES -->
                 <div class="d-flex flex-wrap gap-3">
 
-                    <a href="https://wa.me/5531988078334?text=Olá,%20tenho%20interesse%20no%20produto%20@Model.Name"
-                       target="_blank"
+                    <a asp-controller="Cart" asp-action="Add" asp-route-id="@Model.Id" target="_blank"
                        class="btn btn-dark btn-lg rounded-pill px-5">
 
-                        <i class="bi bi-whatsapp me-2"></i>
-                        Comprar no WhatsApp
+                        <i class="bi bi-cart"></i>
+                        Adicionar ao Carrinho
 
                     </a>
 
