@@ -54,11 +54,48 @@ ViewData["Title"] = "Checkout";
                         </div>
 
                         <div class="mb-3">
+                            <label asp-for="ZipCode" class="form-label fw-semibold"></label>
+
+                            <input asp-for="ZipCode" class="form-control" autocomplete="postal-code" />
+
+                            <span asp-validation-for="ZipCode" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
                             <label asp-for="Address" class="form-label fw-semibold"></label>
 
                             <input asp-for="Address" class="form-control" autocomplete="street-address" />
 
                             <span asp-validation-for="Address" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+
+                            <label asp-for="ShippingMethod" class="form-label fw-semibold">
+                                Forma de Entrega
+                            </label>
+
+                            <select asp-for="ShippingMethod" class="form-select">
+
+                                <option value="">Selecione</option>
+
+                                <option value="PAC">
+                                    PAC - R$ 15,00
+                                </option>
+
+                                <option value="SEDEX">
+                                    SEDEX - R$ 30,00
+                                </option>
+
+                                <option value="RETIRADA">
+                                    Retirar na Loja - Grátis
+                                </option>
+
+                            </select>
+
+                            <span asp-validation-for="ShippingMethod" class="text-danger">
+                            </span>
+
                         </div>
 
                         <input type="hidden" asp-for="Total" />

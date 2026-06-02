@@ -45,6 +45,7 @@ namespace LojaVirtual.Controllers
                 .GetObjectFromJson<List<CartItem>>("cart")
                 ?? new List<CartItem>();
 
+
             if (!cart.Any())
             {
                 ModelState.AddModelError("", "Carrinho vazio.");
@@ -53,6 +54,25 @@ namespace LojaVirtual.Controllers
             }
 
             model.Total = cart.Sum(x => x.Price * x.Quantity);
+
+            decimal shippingCost = 0;
+
+            switch (model.ShippingMethod)
+            {
+                case "PAC":
+                    shippingCost = 15m;
+                    break;
+
+                case "SEDEX":
+                    shippingCost = 30m;
+                    break;
+
+                case "RETIRADA":
+                    shippingCost = 0m;
+                    break;
+            }
+
+            model.Total += shippingCost;
 
             if (!ModelState.IsValid)
             {
@@ -66,11 +86,17 @@ namespace LojaVirtual.Controllers
                 Email = model.Email,
                 Phone = model.Phone,
                 Address = model.Address,
+
+                ZipCode = model.ZipCode,
+
+                ShippingMethod = model.ShippingMethod,
+
                 Total = model.Total,
+
                 Status = "Pendente",
+
                 CreatedAt = DateTime.Now
             };
-
             _context.Orders.Add(order);
 
             await _context.SaveChangesAsync();

@@ -17,10 +17,18 @@ public class CheckoutViewModel
     [Required(ErrorMessage = "O telefone do cliente é obrigatório.")]
     public string Phone { get; set; } = "";
 
+    [Display(Name = "CEP")]
+    [Required(ErrorMessage = "O CEP do cliente é obrigatório.")]
+    public string ZipCode { get; set; } = "";
+
     [Display(Name = "Endereço")]
     [Required(ErrorMessage = "O endereço do cliente é obrigatório.")]
     public string Address { get; set; } = "";
 
     [Display(Name = "Total")]
     public decimal Total { get; set; }
+
+    [Display(Name = "Método de Envio")]
+    public string ShippingMethod { get; set; } = "";
+    public decimal ShippingCost { get; set; }
 }

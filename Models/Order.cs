@@ -20,6 +20,10 @@ namespace LojaVirtual.Models
 
         public ICollection<OrderItem> Items { get; set; }
             = new List<OrderItem>();
+
+        public string ZipCode { get; set; } = "";    
+
+        public string ShippingMethod { get; set; } = "";
         
     }
 }
