@@ -28,6 +28,9 @@ namespace LojaVirtual.Models
         // GALERIA
         public ICollection<ProductMedia> ProductMedias { get; set; }
             = new List<ProductMedia>();
+
+        public ICollection<OrderItem> OrderItems { get; set; }
+          = new List<OrderItem>();
          
     }
 }

@@ -1,4 +1,5 @@
 using LojaVirtual.Data;
+using LojaVirtual.Web.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 
@@ -16,6 +17,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddHttpClient<
+    IMercadoPagoService,
+    MercadoPagoService>();
 
 builder.Services.AddDistributedMemoryCache();
 

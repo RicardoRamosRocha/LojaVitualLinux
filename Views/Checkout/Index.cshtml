@@ -1,0 +1,141 @@
+@model LojaVirtual.ViewModels.CheckoutViewModel
+
+@{
+ViewData["Title"] = "Checkout";
+}
+
+<partial name="_Navbar" />
+
+<div class="container py-5">
+
+```
+<div style="height:100px"></div>
+
+<form asp-action="Index" method="post">
+
+    @Html.AntiForgeryToken()
+
+        <div class="row g-4">
+
+            <div class="col-lg-8">
+
+                <div class="card shadow border-0 rounded-4">
+
+                    <div class="card-body p-4">
+
+                        <h2 class="fw-bold mb-4">
+                            Finalizar Pedido
+                        </h2>
+
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3">
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="CustomerName" class="form-label fw-semibold"></label>
+
+                            <input asp-for="CustomerName" class="form-control" autocomplete="name" />
+
+                            <span asp-validation-for="CustomerName" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label fw-semibold"></label>
+
+                            <input asp-for="Email" class="form-control" autocomplete="email" />
+
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Phone" class="form-label fw-semibold"></label>
+
+                            <input asp-for="Phone" class="form-control" autocomplete="tel" />
+
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Address" class="form-label fw-semibold"></label>
+
+                            <input asp-for="Address" class="form-control" autocomplete="street-address" />
+
+                            <span asp-validation-for="Address" class="text-danger"></span>
+                        </div>
+
+                        <input type="hidden" asp-for="Total" />
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="col-lg-4">
+
+            <div class="card shadow border-0 rounded-4 sticky-top"
+                 style="top:120px;">
+
+                <div class="card-body">
+
+                    <h4 class="fw-bold mb-4">
+                        Resumo do Pedido
+                    </h4>
+
+                    @if (ViewBag.Cart != null)
+                    {
+                        foreach (var item in ViewBag.Cart)
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+
+                                <span>
+                                    @item.Name x @item.Quantity
+                                </span>
+
+                                <span>
+                                    @((item.Price * item.Quantity).ToString("C"))
+                                </span>
+
+                            </div>
+                        }
+                    }
+
+                    <hr />
+
+                    <div class="d-flex justify-content-between align-items-center">
+
+                        <strong>Total:</strong>
+
+                        <h4 class="text-success fw-bold mb-0">
+                            @Model.Total.ToString("C")
+                        </h4>
+
+                    </div>
+
+                    <hr />
+
+                    <button type="submit"
+                            class="btn btn-dark w-100 rounded-pill py-3">
+
+                        <i class="bi bi-bag-check me-2"></i>
+
+                        Finalizar Compra
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</form>
+```
+
+</div>
+
+<partial name="_Footer" />
+
+@section Scripts
+{ <partial name="_ValidationScriptsPartial" />
+}
