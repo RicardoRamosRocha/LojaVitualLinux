@@ -21,7 +21,9 @@ namespace LojaVirtual.Models
 
         public string? VideoUrl { get; set; }
 
-        public int? CategoryId { get; set; }  
+        public int? CategoryId { get; set; } 
+
+         public Category? Category { get; set; }
 
         // GALERIA
         public ICollection<ProductMedia> ProductMedias { get; set; }

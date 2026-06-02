@@ -39,11 +39,19 @@ namespace LojaVirtual.Controllers
                 return NotFound();
 
             var product = await _context.Products
+                .Include(p => p.Category)
                 .Include(p => p.ProductMedias)
-                .FirstOrDefaultAsync(m => m.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             if (product == null)
                 return NotFound();
+
+            ViewBag.RelatedProducts = await _context.Products
+                .Include(p => p.ProductMedias)
+                .Where(p => p.CategoryId == product.CategoryId &&
+                            p.Id != product.Id)
+                .Take(4)
+                .ToListAsync();
 
             return View(product);
         }

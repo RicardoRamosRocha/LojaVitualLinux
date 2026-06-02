@@ -1,13 +1,14 @@
 @model LojaVirtual.Models.Product
 
 @{
-    ViewData["Title"] = Model.Name;
+ViewData["Title"] = Model.Name;
 }
 
 <partial name="_Navbar" />
 
-<div style="height:120px;"></div>
+<div class="product-page">
 
+```
 <section class="py-5">
 
     <div class="container">
@@ -21,9 +22,9 @@
                      Model.ProductMedias.Any())
                 {
                     <div id="productCarousel"
-                         class="carousel slide">
+                         class="carousel slide"
+                         data-bs-ride="carousel">
 
-                        <!-- SLIDES -->
                         <div class="carousel-inner rounded-4 shadow">
 
                             @{
@@ -39,17 +40,13 @@
                                     @if (media.Type == "image")
                                     {
                                         <img src="@media.Url"
-                                             class="d-block w-100"
                                              alt="@Model.Name"
-                                             style="height:650px;
-                                                    object-fit:cover;" />
+                                             class="d-block w-100 gallery-image" />
                                     }
                                     else
                                     {
                                         <video controls
-                                               class="w-100"
-                                               style="height:650px;
-                                                      object-fit:cover;">
+                                               class="w-100 gallery-image">
 
                                             <source src="@media.Url"
                                                     type="video/mp4">
@@ -62,7 +59,6 @@
 
                         </div>
 
-                        <!-- BOTÃO ANTERIOR -->
                         <button class="carousel-control-prev"
                                 type="button"
                                 data-bs-target="#productCarousel"
@@ -72,7 +68,6 @@
 
                         </button>
 
-                        <!-- BOTÃO PRÓXIMO -->
                         <button class="carousel-control-next"
                                 type="button"
                                 data-bs-target="#productCarousel"
@@ -85,7 +80,8 @@
                     </div>
 
                     <!-- MINIATURAS -->
-                    <div class="d-flex gap-3 mt-4 flex-wrap">
+
+                    <div class="d-flex flex-wrap gap-3 mt-4">
 
                         @for (int i = 0; i < medias.Count; i++)
                         {
@@ -99,18 +95,11 @@
                                 @if (media.Type == "image")
                                 {
                                     <img src="@media.Url"
-                                         style="width:90px;
-                                                height:90px;
-                                                object-fit:cover;
-                                                border-radius:16px;
-                                                border:2px solid #ddd;" />
+                                         class="thumb-image" />
                                 }
                                 else
                                 {
-                                    <div class="bg-dark text-white d-flex align-items-center justify-content-center"
-                                         style="width:90px;
-                                                height:90px;
-                                                border-radius:16px;">
+                                    <div class="thumb-video">
 
                                         <i class="bi bi-play-fill fs-2"></i>
 
@@ -121,20 +110,36 @@
                         }
 
                     </div>
+
                 }
 
             </div>
 
-            <!-- INFORMAÇÕES -->
+            <!-- DADOS -->
+
             <div class="col-lg-6">
 
                 <span class="badge bg-dark rounded-pill px-3 py-2 mb-3">
+
                     Angel Acessórios
+
                 </span>
 
                 <h1 class="fw-bold display-5 mb-3">
+
                     @Model.Name
+
                 </h1>
+
+                @if (Model.Category != null)
+                {
+                    <p class="text-muted mb-4">
+
+                        Categoria:
+                        <strong>@Model.Category.Name</strong>
+
+                    </p>
+                }
 
                 <div class="fs-1 fw-bold text-dark mb-4">
 
@@ -155,7 +160,8 @@
                         <span class="badge bg-success px-4 py-3 rounded-pill fs-6">
 
                             <i class="bi bi-check-circle me-2"></i>
-                            Produto disponível
+
+                            @Model.Stock unidades disponíveis
 
                         </span>
                     }
@@ -170,21 +176,24 @@
 
                 </div>
 
-                <!-- BOTÕES -->
                 <div class="d-flex flex-wrap gap-3">
 
-                    <a asp-controller="Cart" asp-action="Add" asp-route-id="@Model.Id" target="_blank"
+                    <a asp-controller="Cart"
+                       asp-action="Add"
+                       asp-route-id="@Model.Id"
                        class="btn btn-dark btn-lg rounded-pill px-5">
 
-                        <i class="bi bi-cart"></i>
+                        <i class="bi bi-cart me-2"></i>
+
                         Adicionar ao Carrinho
 
                     </a>
 
-                    <a asp-action="Index"
+                    <a asp-controller="Cart"
+                       asp-action="Index"
                        class="btn btn-outline-dark btn-lg rounded-pill px-5">
 
-                        Voltar
+                        Ver Carrinho
 
                     </a>
 
@@ -197,5 +206,28 @@
     </div>
 
 </section>
+
+@if (ViewBag.RelatedProducts != null)
+{
+    <section class="py-5 bg-light">
+
+        <div class="container">
+
+            <h3 class="fw-bold mb-4">
+
+                Você também pode gostar
+
+            </h3>
+
+            <partial name="_ProductGrid"
+                     model="ViewBag.RelatedProducts" />
+
+        </div>
+
+    </section>
+}
+```
+
+</div>
 
 <partial name="_Footer" />
