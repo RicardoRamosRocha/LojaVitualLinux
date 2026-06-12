@@ -17,12 +17,16 @@ public class AppDbContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    base.OnModelCreating(modelBuilder);
+    public DbSet<Customer> Customers { get; set; }
 
-    modelBuilder.Entity<OrderItem>()
-        .HasOne(x => x.Order)
+    public DbSet<Address> Addresses { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<OrderItem>()
+            .HasOne(x => x.Order)
         .WithMany(x => x.Items)
         .HasForeignKey(x => x.OrderId);
 
