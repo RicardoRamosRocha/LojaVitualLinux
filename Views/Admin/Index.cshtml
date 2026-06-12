@@ -1,0 +1,57 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="mt-4">
+    <a asp-controller="Products"
+       asp-action="Index"
+       class="btn btn-primary">
+        Gerenciar Produtos
+    </a>
+</div>
+
+<div class="container mt-4">
+
+    <h1 class="mb-4">Painel Administrativo</h1>
+
+    <div class="row g-4">
+
+        <div class="col-md-3">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h5>Produtos</h5>
+                    <h2>@ViewBag.TotalProducts</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h5>Categorias</h5>
+                    <h2>@ViewBag.TotalCategories</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h5>Pedidos</h5>
+                    <h2>@ViewBag.TotalOrders</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center shadow">
+                <div class="card-body">
+                    <h5>Clientes</h5>
+                    <h2>@ViewBag.TotalCustomers</h2>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>

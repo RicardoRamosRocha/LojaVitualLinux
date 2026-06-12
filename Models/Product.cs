@@ -16,6 +16,16 @@ namespace LojaVirtual.Models
 
         public int Stock { get; set; }
 
+        public bool IsActive { get; set; } = true;
+
+        public bool IsFeatured { get; set; } = false;
+
+        public bool IsNewCollection { get; set; } = false;
+
+        public bool IsBestSeller { get; set; } = false;
+
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
         // COMPATIBILIDADE TEMPORÁRIA
         public string? ImageUrl { get; set; }
 
