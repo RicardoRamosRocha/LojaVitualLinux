@@ -36,24 +36,20 @@
                         </div>
 
                         <!-- FORM -->
-                        <form asp-action="Edit"
-                              enctype="multipart/form-data">
+                        <form asp-action="Edit" enctype="multipart/form-data">
 
                             <input type="hidden" asp-for="Id" />
 
                             <!-- NOME -->
                             <div class="mb-4">
 
-                                <label asp-for="Name"
-                                       class="form-label fw-semibold">
+                                <label asp-for="Name" class="form-label fw-semibold">
                                     Nome do Produto
                                 </label>
 
-                                <input asp-for="Name"
-                                       class="form-control form-control-lg rounded-3" />
+                                <input asp-for="Name" class="form-control form-control-lg rounded-3" />
 
-                                <span asp-validation-for="Name"
-                                      class="text-danger small">
+                                <span asp-validation-for="Name" class="text-danger small">
                                 </span>
 
                             </div>
@@ -61,17 +57,13 @@
                             <!-- DESCRIÇÃO -->
                             <div class="mb-4">
 
-                                <label asp-for="Description"
-                                       class="form-label fw-semibold">
+                                <label asp-for="Description" class="form-label fw-semibold">
                                     Descrição
                                 </label>
 
-                                <textarea asp-for="Description"
-                                          class="form-control rounded-3"
-                                          rows="5"></textarea>
+                                <textarea asp-for="Description" class="form-control rounded-3" rows="5"></textarea>
 
-                                <span asp-validation-for="Description"
-                                      class="text-danger small">
+                                <span asp-validation-for="Description" class="text-danger small">
                                 </span>
 
                             </div>
@@ -92,13 +84,53 @@
 
                                 <div class="col-md-6 mb-4">
 
-                                    <label asp-for="Stock"                                       class="form-label fw-semibold">
+                                    <label asp-for="Stock" class="form-label fw-semibold">
                                         Estoque
                                     </label>
 
                                     <input asp-for="Stock" type="number" min="0"
                                            class="form-control form-control-lg rounded-3" />
 
+                                </div>
+
+                            </div>
+
+                            <div class="row mb-4">
+
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input asp-for="IsActive" class="form-check-input" />
+                                        <label asp-for="IsActive" class="form-check-label">
+                                            Ativo
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input asp-for="IsFeatured" class="form-check-input" />
+                                        <label asp-for="IsFeatured" class="form-check-label">
+                                            Destaque
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input asp-for="IsNewCollection" class="form-check-input" />
+                                        <label asp-for="IsNewCollection" class="form-check-label">
+                                            Nova Coleção
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input asp-for="IsBestSeller" class="form-check-input" />
+                                        <label asp-for="IsBestSeller" class="form-check-label">
+                                            Mais Vendido
+                                        </label>
+                                    </div>
                                 </div>
 
                             </div>
@@ -110,9 +142,7 @@
                                     Adicionar Novas Imagens
                                 </label>
 
-                                <input type="file"
-                                       name="imageFiles"
-                                       multiple
+                                <input type="file" name="imageFiles"          multiple
                                        accept="image/*"
                                        class="form-control form-control-lg rounded-3" />
 

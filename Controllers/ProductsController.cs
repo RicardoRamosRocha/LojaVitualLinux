@@ -211,6 +211,10 @@ namespace LojaVirtual.Controllers
             existing.Price = product.Price;
             existing.Stock = product.Stock;
             existing.CategoryId = product.CategoryId;
+            existing.IsActive = product.IsActive;
+            existing.IsFeatured = product.IsFeatured;
+            existing.IsNewCollection = product.IsNewCollection;
+            existing.IsBestSeller = product.IsBestSeller;
 
             // =========================
             // NOVAS IMAGENS
