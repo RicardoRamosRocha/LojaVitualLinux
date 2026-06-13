@@ -160,3 +160,65 @@ img {
     }
 
 }
+
+.scroll-chevron-wrapper{
+    position:absolute;
+    bottom:5px;
+    left:50%;
+    transform:translateX(-50%);
+    text-align:center;
+    z-index:10;
+}
+
+.scroll-text{
+    display:block;
+    color:#c8a67b;
+    font-size:1rem;
+    font-weight:500;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    margin-bottom:20px;
+    text-shadow:0 2px 10px rgba(0,0,0,.25);
+}
+
+.scroll-chevron{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+
+.scroll-chevron span{
+    width: 70px;
+    height:70px;
+
+     border-right:3px solid #c8a67b;
+    border-bottom:3px solid #c8a67b;
+    filter:drop-shadow(0 2px 6px rgba(0,0,0,.25));
+
+    transform:rotate(45deg);
+
+    margin:-20px;
+
+    animation:chevronDown 2s infinite;
+}
+
+.scroll-chevron span:nth-child(2){
+    animation-delay:.25s;
+}
+
+@keyframes chevronDown{
+
+    0%{
+        opacity:0;
+        transform:rotate(45deg) translate(-12px,-12px);
+    }
+
+    50%{
+        opacity:1;
+    }
+
+    100%{
+        opacity:0;
+        transform:rotate(45deg) translate(12px,12px);
+    }
+}

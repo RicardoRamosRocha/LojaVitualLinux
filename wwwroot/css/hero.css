@@ -3,8 +3,9 @@
     background: linear-gradient(
         180deg,
         #faf7f2 0%,
-        #ffffff 100%
+        #ffffff 100%   
     );
+    position:relative;
 }
 
 .hero-badge{

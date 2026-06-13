@@ -13,20 +13,29 @@ public class HomeController : Controller
     {
         _context = context;
     }
-   public async Task<IActionResult> Index()
+ 
+public async Task<IActionResult> Index()
 {
-    var products = await _context.Products
-        .Include(p => p.ProductMedias)
-        .ToListAsync();
-
     var model = new HomeViewModel
     {
-        FeaturedProducts = products
+        FeaturedProducts = await _context.Products
+            .Include(p => p.ProductMedias)
+            .Where(p => p.IsActive && p.IsFeatured)
+            .ToListAsync(),
+
+        NewCollectionProducts = await _context.Products
+            .Include(p => p.ProductMedias)
+            .Where(p => p.IsActive && p.IsNewCollection)
+            .ToListAsync(),
+
+        BestSellerProducts = await _context.Products
+            .Include(p => p.ProductMedias)
+            .Where(p => p.IsActive && p.IsBestSeller)
+            .ToListAsync()
     };
 
     return View(model);
 }
-    
     public IActionResult Privacy()
     {
         return View();

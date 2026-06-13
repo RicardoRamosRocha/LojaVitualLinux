@@ -8,7 +8,55 @@
 
 <partial name="_Hero" />
 
-<partial name="_ProductGrid"
-         model="Model.FeaturedProducts" />
+@if (Model.NewCollectionProducts.Any())
+{
+    <section class="container mt-2 mb-4">
+        <div class="text-center mb-4">
+            <span class="text-uppercase text-muted small fw-semibold">
+                Lançamentos
+            </span>
+            <h2 class="fw-bold">Nova Coleção</h2>
+            <p class="text-muted">Peças selecionadas para brilhar em todos os momentos.</p>
+        </div>
+
+        <partial name="_ProductGrid" model="Model.NewCollectionProducts" />
+
+        <div class="scroll-chevron mt-1">
+            <span></span>
+            <span></span>
+        </div>
+
+    </section>
+}
+
+@if (Model.FeaturedProducts.Any())
+{
+    <section class="container mt-2 mb-4">
+        <div class="text-center mb-4">
+            <span class="text-uppercase text-muted small fw-semibold">
+                Angel Acessórios
+            </span>
+            <h2 class="fw-bold">Produtos em Destaque</h2>
+            <p class="text-muted">Os acessórios favoritos da nossa vitrine.</p>
+        </div>
+
+        <partial name="_ProductGrid" model="Model.FeaturedProducts" />
+    </section>
+}
+
+@if (Model.BestSellerProducts.Any())
+{
+    <section class="container mt-2 mb-4">
+        <div class="text-center mb-4">
+            <span class="text-uppercase text-muted small fw-semibold">
+                Mais Procurados
+            </span>
+            <h2 class="fw-bold">Mais Vendidos</h2>
+            <p class="text-muted">Produtos que nossas clientes mais amam.</p>
+        </div>
+
+        <partial name="_ProductGrid" model="Model.BestSellerProducts" />
+    </section>
+}
 
 <partial name="_Footer" />

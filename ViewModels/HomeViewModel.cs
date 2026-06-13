@@ -6,5 +6,11 @@ namespace LojaVirtual.ViewModels
     {
         public List<Product> FeaturedProducts { get; set; }
             = new();
+
+        public List<Product> NewCollectionProducts { get; set; }
+            = new();
+
+        public List<Product> BestSellerProducts { get; set; }
+            = new();
     }
 }
