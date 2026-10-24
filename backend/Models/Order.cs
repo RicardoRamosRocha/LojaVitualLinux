@@ -24,6 +24,13 @@ namespace LojaVirtual.Models
         public string ZipCode { get; set; } = "";    
 
         public string ShippingMethod { get; set; } = "";
+
+        public string? IdempotencyKey { get; set; }
+
+        public string? IdempotencyFingerprint { get; set; }
+
+        public ICollection<OrderStockReservation> StockReservations { get; set; }
+            = new List<OrderStockReservation>();
         
     }
 }
