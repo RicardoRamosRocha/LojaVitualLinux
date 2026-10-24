@@ -197,6 +197,8 @@ public sealed class ApiOrdersController : ControllerBase
     {
         var payload = JsonSerializer.Serialize(new
         {
+            // The idempotency key is client supplied, so bind retries to the
+            // session that originally authorized the checkout context.
             Session = Hash(HttpContext.Session.Id),
             IdempotencyKey = idempotencyKey,
             CustomerName = request.CustomerName.Trim(),

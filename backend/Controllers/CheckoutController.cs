@@ -41,6 +41,13 @@ namespace LojaVirtual.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Index(CheckoutViewModel model)
         {
+            return StatusCode(StatusCodes.Status410Gone, new
+            {
+                code = "legacy_checkout_disabled",
+                message = "O checkout legado foi desativado. Use a API de pedidos."
+            });
+
+#pragma warning disable CS0162
             var cart = HttpContext.Session
                 .GetObjectFromJson<List<CartItem>>("cart")
                 ?? new List<CartItem>();
@@ -121,6 +128,7 @@ namespace LojaVirtual.Controllers
                     .CriarPreferenciaAsync(order);
 
             return Redirect(pagamentoUrl);
+#pragma warning restore CS0162
         }
 
         [HttpGet]

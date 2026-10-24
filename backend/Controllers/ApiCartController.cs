@@ -173,6 +173,19 @@ public sealed class ApiCartController : ControllerBase
             })
             .ToDictionaryAsync(product => product.Id);
 
+        var reservedQuantities = await _context.StockReservations
+            .Where(reservation => reservation.Status == "Reservada" &&
+                                  reservation.ExpiresAt > DateTime.Now &&
+                                  productIds.Contains(reservation.ProductId))
+            .GroupBy(reservation => reservation.ProductId)
+            .Select(group => new { ProductId = group.Key, Quantity = group.Sum(item => item.Quantity) })
+            .ToDictionaryAsync(item => item.ProductId, item => item.Quantity);
+
+        foreach (var product in products.Values)
+        {
+            product.Stock = Math.Max(0, product.Stock - reservedQuantities.GetValueOrDefault(product.Id));
+        }
+
         var items = new List<ApiCartItemResponse>();
         var changed = false;
 
@@ -220,7 +233,7 @@ public sealed class ApiCartController : ControllerBase
 
     private async Task<ProductSnapshot?> GetAvailableProductAsync(int productId)
     {
-        return await _context.Products
+        var product = await _context.Products
             .AsNoTracking()
             .Where(product => product.Id == productId && product.IsActive)
             .Select(product => new ProductSnapshot
@@ -236,6 +249,20 @@ public sealed class ApiCartController : ControllerBase
                     .FirstOrDefault()
             })
             .SingleOrDefaultAsync();
+
+        if (product is null)
+        {
+            return null;
+        }
+
+        var reservedQuantity = await _context.StockReservations
+            .Where(reservation => reservation.ProductId == productId &&
+                                  reservation.Status == "Reservada" &&
+                                  reservation.ExpiresAt > DateTime.Now)
+            .SumAsync(reservation => (int?)reservation.Quantity) ?? 0;
+
+        product.Stock = Math.Max(0, product.Stock - reservedQuantity);
+        return product;
     }
 
     private List<ApiCartItemSession> ReadCart()

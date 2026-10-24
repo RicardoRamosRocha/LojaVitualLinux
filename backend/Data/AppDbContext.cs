@@ -53,6 +53,11 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<OrderStockReservation>()
+            .Property(reservation => reservation.Status)
+            .HasMaxLength(32)
+            .IsRequired();
+
+        modelBuilder.Entity<OrderStockReservation>()
             .HasIndex(reservation => new { reservation.ProductId, reservation.Status, reservation.ExpiresAt });
 }
 

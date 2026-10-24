@@ -142,8 +142,9 @@ namespace LojaVirtual.Data.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("Status")
+                        .HasMaxLength(32)
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("varchar(32)");
 
                     b.Property<decimal>("Total")
                         .HasColumnType("decimal(65,30)");
