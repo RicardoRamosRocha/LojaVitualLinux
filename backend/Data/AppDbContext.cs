@@ -1,9 +1,10 @@
 using LojaVirtual.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace LojaVirtual.Data;
 
-public class AppDbContext : DbContext
+public class AppDbContext : IdentityDbContext<ApplicationUser>
 {
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -39,6 +40,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Order>()
             .HasIndex(order => order.IdempotencyKey)
             .IsUnique();
+
+        modelBuilder.Entity<Order>()
+            .Property(order => order.Status)
+            .HasMaxLength(32)
+            .IsRequired();
 
         modelBuilder.Entity<OrderStockReservation>()
             .HasOne(reservation => reservation.Order)
