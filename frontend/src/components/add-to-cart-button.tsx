@@ -49,7 +49,11 @@ export function AddToCartButton({ productId, stock }: { productId: number; stock
       <button className="cart-button cart-button--available" type="button" onClick={handleAdd} disabled={pending}>
         {pending ? "Adicionando..." : "Adicionar ao carrinho"}
       </button>
-      {added && <p className="cart-feedback" role="status">Produto adicionado. <Link href="/carrinho">Ver carrinho</Link></p>}
+      {added && (
+        <p className="cart-feedback" role="status">
+          Produto adicionado. <Link href="/carrinho">Ver carrinho</Link> ou <Link href="/checkout">Ir para checkout</Link>.
+        </p>
+      )}
       {error && <p className="cart-error" role="alert">{error}</p>}
     </>
   );

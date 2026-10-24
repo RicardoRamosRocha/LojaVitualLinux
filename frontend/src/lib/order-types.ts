@@ -10,6 +10,12 @@ export type CreateOrderRequest = {
   address?: string;
   shippingMethod: ShippingMethod;
 };
+export type OrderApiErrorItem = {
+  productId: number;
+  code: string;
+  message: string;
+  availableStock?: number;
+};
 export type OrderItemResponse = {
   productId: number;
   quantity: number;
@@ -29,12 +35,7 @@ export type OrderResponse = {
 export type OrderError = {
   code?: string;
   message?: string;
-  items?: Array<{
-    productId: number;
-    code: string;
-    message: string;
-    availableStock?: number;
-  }>;
+  items?: OrderApiErrorItem[];
 };
 
 export type CheckoutCart = CartResponse;

@@ -124,7 +124,7 @@ export function CartView() {
             <p className="eyebrow">Resumo</p><h2>Total da seleção</h2>
             <div className="cart-summary__line"><span>{cart.totalQuantity} {cart.totalQuantity === 1 ? "item" : "itens"}</span><strong>{currency.format(cart.subtotal)}</strong></div>
             <Link className="cart-button cart-button--link" href="/checkout">Continuar para checkout</Link>
-            <p className="cart-note">Checkout será disponibilizado na próxima etapa.</p>
+            <p className="cart-note">Revise os itens e avance para informar os dados de entrega.</p>
           </aside>
         </div>
       )}

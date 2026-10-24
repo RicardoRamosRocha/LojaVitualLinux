@@ -4,9 +4,11 @@ export async function proxyCartRequest(request: Request, path: string) {
   const headers = new Headers({ Accept: "application/json" });
   const cookie = request.headers.get("cookie");
   const csrfToken = request.headers.get("RequestVerificationToken");
+  const idempotencyKey = request.headers.get("Idempotency-Key");
 
   if (cookie) headers.set("Cookie", cookie);
   if (csrfToken) headers.set("RequestVerificationToken", csrfToken);
+  if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (request.method !== "GET" && request.method !== "DELETE") {
     headers.set("Content-Type", "application/json");
   }

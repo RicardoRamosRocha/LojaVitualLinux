@@ -5,6 +5,8 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5268").repl
   "",
 );
 
+const mediaPathPattern = /^(?:images|videos)\/products\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:jpe?g|png|webp|gif|svg|mp4|webm)$/i;
+
 function isProduct(value: unknown): value is Product {
   if (!value || typeof value !== "object") return false;
 
@@ -19,8 +21,9 @@ function isProduct(value: unknown): value is Product {
 
 export function resolveMediaUrl(path: string | null | undefined) {
   if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${apiUrl}/${path.replace(/^\/+/, "")}`;
+
+  const normalizedPath = path.replace(/^\/+/, "");
+  return mediaPathPattern.test(normalizedPath) ? `/media/${normalizedPath}` : null;
 }
 
 export async function getProducts(): Promise<ProductsResult> {
