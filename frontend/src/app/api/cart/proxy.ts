@@ -21,6 +21,7 @@ export async function proxyCartRequest(request: Request, path: string) {
   });
 
   const responseHeaders = new Headers();
+  responseHeaders.set("cache-control", "private, no-store");
   const contentType = response.headers.get("content-type");
   if (contentType) responseHeaders.set("content-type", contentType);
 

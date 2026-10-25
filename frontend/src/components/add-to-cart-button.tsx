@@ -18,14 +18,16 @@ export function AddToCartButton({ productId, stock }: { productId: number; stock
     setError(null);
 
     try {
-      let token = csrfToken;
-      if (!token) {
-        const result = await fetchCart();
-        token = result.csrfToken;
-        setCsrfToken(token);
-      }
+      const result = await fetchCart();
+      const token = result.csrfToken ?? csrfToken;
+      setCsrfToken(token);
 
       if (!token) throw new Error("Não foi possível proteger esta operação.");
+      const existingItem = result.cart.items.find((item) => item.productId === productId);
+      const availableStock = existingItem?.availableStock ?? numericStock;
+      if ((existingItem?.quantity ?? 0) >= availableStock) {
+        throw new Error(`Há apenas ${availableStock} unidade${availableStock === 1 ? "" : "s"} disponível${availableStock === 1 ? "" : "is"} deste produto.`);
+      }
       await addCartItem(productId, 1, token);
       setAdded(true);
     } catch (caughtError) {

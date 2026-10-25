@@ -103,7 +103,11 @@ public sealed class AdminProvisioningService
     {
         if (!result.Succeeded)
         {
-            throw new InvalidOperationException(message);
+            var errors = string.Join(
+                "; ",
+                result.Errors.Select(error => $"{error.Code}: {error.Description}"));
+
+            throw new InvalidOperationException($"{message} Motivo(s): {errors}");
         }
     }
 }

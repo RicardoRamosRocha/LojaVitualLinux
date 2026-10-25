@@ -18,6 +18,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderStockReservation> StockReservations { get; set; }
+    public DbSet<OrderAccessCredential> OrderAccessCredentials { get; set; }
 
     public DbSet<Customer> Customers { get; set; }
 
@@ -65,6 +66,24 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
         modelBuilder.Entity<OrderStockReservation>()
             .HasIndex(reservation => new { reservation.ProductId, reservation.Status, reservation.ExpiresAt });
+
+        modelBuilder.Entity<OrderAccessCredential>()
+            .HasOne(credential => credential.Order)
+            .WithMany(order => order.AccessCredentials)
+            .HasForeignKey(credential => credential.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrderAccessCredential>()
+            .Property(credential => credential.TokenHash)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        modelBuilder.Entity<OrderAccessCredential>()
+            .HasIndex(credential => credential.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<OrderAccessCredential>()
+            .HasIndex(credential => new { credential.OrderId, credential.RevokedAt, credential.ExpiresAt });
 }
 
 

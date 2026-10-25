@@ -1,69 +1,26 @@
 @model LojaVirtual.Models.Order
-
+@using LojaVirtual.Services
 @{
-    Layout = null;
+    ViewData["Title"] = $"Pedido #{Model.Id}";
+    var subtotal = Model.Items.Sum(item => item.UnitPrice * item.Quantity);
+    var hasNextStatus = OrderStatusWorkflow.TryGetNextStatus(Model.Status, out var nextStatus);
 }
 
-<!DOCTYPE html>
-
-<html>
-<head>
-    <meta name="viewport" content="width=device-width" />
-    <title>Details</title>
-</head>
-<body>
-
-<div>
-    <h4>Order</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.CustomerName)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.CustomerName)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Email)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Email)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Phone)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Phone)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Address)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Address)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Total)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Total)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Status)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Status)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.CreatedAt)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.CreatedAt)
-        </dd>
-    </dl>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+    <div><p class="admin-kicker mb-2">Detalhes do pedido</p><h2 class="admin-section-title mb-1">Pedido #@Model.Id</h2><p class="text-secondary mb-0">Criado em @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p></div>
+    <a asp-action="Index" class="btn btn-outline-dark admin-btn"><i class="bi bi-arrow-left me-2"></i>Voltar aos pedidos</a>
 </div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.Id">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+@if (TempData["StatusSuccess"] is string successMessage) { <div class="alert alert-success" role="status">@successMessage</div> }
+@if (TempData["StatusError"] is string errorMessage) { <div class="alert alert-danger" role="alert">@errorMessage</div> }
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="admin-panel p-4 mb-4"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="admin-section-title mb-0">Itens</h3><span class="admin-status">@Model.Status</span></div><div class="table-responsive"><table class="table admin-table"><thead><tr><th>Produto</th><th>Quantidade</th><th>Preço unitário</th><th class="text-end">Subtotal</th></tr></thead><tbody>
+        @foreach (var item in Model.Items) { <tr><td>Produto #@item.ProductId</td><td>@item.Quantity</td><td>@item.UnitPrice.ToString("C")</td><td class="text-end">@((item.UnitPrice * item.Quantity).ToString("C"))</td></tr> }
+        </tbody></table></div></div>
+        <div class="admin-panel p-4 mb-4"><div class="d-flex justify-content-between align-items-center gap-3"><div><h3 class="admin-section-title mb-1">Atualizar status</h3><p class="text-secondary mb-0">Avance somente para a próxima etapa permitida.</p></div><span class="admin-status">@Model.Status</span></div>
+        @if (hasNextStatus) { <form asp-action="UpdateStatus" method="post" class="row g-3 align-items-end mt-2" onsubmit="return confirm('Confirmar avanço deste pedido para @nextStatus?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><div class="col-md-7"><label class="form-label" for="nextStatus">Próxima etapa</label><select class="form-select" id="nextStatus" name="nextStatus"><option value="@nextStatus">@nextStatus</option></select></div><div class="col-md-5"><button type="submit" class="btn btn-dark admin-btn w-100"><i class="bi bi-arrow-right-circle me-2"></i>Confirmar avanço</button></div></form> } else if (Model.Status == OrderStatusWorkflow.Delivered) { <p class="text-secondary mb-0 mt-3">Este pedido já está entregue; não há avanço automático disponível.</p> } else { <p class="text-secondary mb-0 mt-3">Não há transições disponíveis para este status.</p> }
+        <p class="small text-secondary mb-0 mt-3">O cancelamento permanece indisponível até existir um fluxo seguro para reservas, estoque e pagamentos.</p></div>
+        <div class="admin-panel p-4"><h3 class="admin-section-title mb-3">Resumo financeiro</h3><div class="d-flex justify-content-between border-bottom py-2"><span>Subtotal</span><strong>@subtotal.ToString("C")</strong></div><div class="d-flex justify-content-between border-bottom py-2"><span>Frete (@Model.ShippingMethod)</span><strong>@((Model.Total - subtotal).ToString("C"))</strong></div><div class="d-flex justify-content-between pt-3 fs-5"><strong>Total</strong><strong>@Model.Total.ToString("C")</strong></div></div>
+    </div>
+    <div class="col-lg-4"><div class="admin-panel p-4 mb-4"><h3 class="admin-section-title mb-3">Cliente</h3><p class="mb-2"><strong>@Model.CustomerName</strong></p><p class="text-secondary small mb-1">@Model.Email</p><p class="text-secondary small mb-0">@Model.Phone</p></div><div class="admin-panel p-4"><h3 class="admin-section-title mb-3">Entrega</h3><p class="mb-1">@Model.Address</p><p class="text-secondary mb-0">CEP: @Model.ZipCode</p></div></div>
 </div>
-</body>
-</html>

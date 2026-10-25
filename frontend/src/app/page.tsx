@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { getProducts } from "@/lib/api";
 import { ProductCard } from "@/components/product-card";
 
@@ -57,6 +58,7 @@ export default function Home() {
             </span>
           </a>
           <a className="nav-link" href="#colecao">Coleção</a>
+          <Link className="nav-link" href="/pedidos">Meus pedidos</Link>
         </nav>
 
         <div className="hero-content" id="inicio">

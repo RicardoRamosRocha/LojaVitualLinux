@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using LojaVirtual.Data;
 using LojaVirtual.Models;
+using LojaVirtual.Services;
 
 namespace LojaVirtual.Controllers
 {
@@ -24,7 +25,10 @@ namespace LojaVirtual.Controllers
         // GET: Orders
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Orders.ToListAsync());
+            return View(await _context.Orders
+                .AsNoTracking()
+                .OrderByDescending(order => order.CreatedAt)
+                .ToListAsync());
         }
 
         // GET: Orders/Details/5
@@ -36,6 +40,7 @@ namespace LojaVirtual.Controllers
             }
 
             var order = await _context.Orders
+                .Include(order => order.Items)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (order == null)
             {
@@ -56,15 +61,39 @@ namespace LojaVirtual.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,CustomerName,Email,Phone,Address,Total,Status,CreatedAt")] Order order)
+        public async Task<IActionResult> Create([Bind("Id,CustomerName,Email,Phone,Address,Total,CreatedAt")] Order order)
         {
             if (ModelState.IsValid)
             {
+                order.Status = OrderStatusWorkflow.Pending;
                 _context.Add(order);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
             return View(order);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateStatus(int id, string nextStatus)
+        {
+            var order = await _context.Orders.FirstOrDefaultAsync(item => item.Id == id);
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            if (!OrderStatusWorkflow.IsAllowedTransition(order.Status, nextStatus))
+            {
+                TempData["StatusError"] = "A transição de status solicitada não é permitida.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            order.Status = nextStatus;
+            await _context.SaveChangesAsync();
+
+            TempData["StatusSuccess"] = $"Status atualizado para {nextStatus}.";
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         // GET: Orders/Edit/5
@@ -88,7 +117,7 @@ namespace LojaVirtual.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,CustomerName,Email,Phone,Address,Total,Status,CreatedAt")] Order order)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,CustomerName,Email,Phone,Address")] Order order)
         {
             if (id != order.Id)
             {
@@ -99,7 +128,16 @@ namespace LojaVirtual.Controllers
             {
                 try
                 {
-                    _context.Update(order);
+                    var existingOrder = await _context.Orders.FirstOrDefaultAsync(item => item.Id == id);
+                    if (existingOrder == null)
+                    {
+                        return NotFound();
+                    }
+
+                    existingOrder.CustomerName = order.CustomerName;
+                    existingOrder.Email = order.Email;
+                    existingOrder.Phone = order.Phone;
+                    existingOrder.Address = order.Address;
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)

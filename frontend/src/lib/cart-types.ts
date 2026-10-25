@@ -17,6 +17,7 @@ export type CartResponse = {
 export type CartError = {
   code?: string;
   message?: string;
+  availableStock?: number;
 };
 
 export const emptyCart: CartResponse = {

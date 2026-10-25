@@ -1,57 +1,26 @@
+@using LojaVirtual.Models
 @{
     ViewData["Title"] = "Dashboard";
+    var recentOrders = ViewBag.RecentOrders as IEnumerable<Order> ?? [];
+    var lowStockProducts = ViewBag.LowStockProducts as IEnumerable<Product> ?? [];
 }
 
-<div class="mt-4">
-    <a asp-controller="Products"
-       asp-action="Index"
-       class="btn btn-primary">
-        Gerenciar Produtos
-    </a>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+    <div><p class="admin-kicker mb-2">Visão geral</p><h2 class="admin-section-title mb-1">Tudo em um só lugar</h2><p class="text-secondary mb-0">Acompanhe a operação da Angel Acessórios.</p></div>
+    <a asp-controller="Products" asp-action="Create" class="btn btn-dark admin-btn"><i class="bi bi-plus-lg me-2"></i>Novo produto</a>
 </div>
-
-<div class="container mt-4">
-
-    <h1 class="mb-4">Painel Administrativo</h1>
-
-    <div class="row g-4">
-
-        <div class="col-md-3">
-            <div class="card text-center shadow">
-                <div class="card-body">
-                    <h5>Produtos</h5>
-                    <h2>@ViewBag.TotalProducts</h2>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card text-center shadow">
-                <div class="card-body">
-                    <h5>Categorias</h5>
-                    <h2>@ViewBag.TotalCategories</h2>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card text-center shadow">
-                <div class="card-body">
-                    <h5>Pedidos</h5>
-                    <h2>@ViewBag.TotalOrders</h2>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card text-center shadow">
-                <div class="card-body">
-                    <h5>Clientes</h5>
-                    <h2>@ViewBag.TotalCustomers</h2>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3"><div class="admin-card admin-stat"><div class="d-flex justify-content-between"><span class="admin-stat__label">Produtos</span><i class="bi bi-box-seam admin-stat__icon"></i></div><div class="admin-stat__value">@ViewBag.TotalProducts</div></div></div>
+    <div class="col-6 col-xl-3"><div class="admin-card admin-stat"><div class="d-flex justify-content-between"><span class="admin-stat__label">Categorias</span><i class="bi bi-tags admin-stat__icon"></i></div><div class="admin-stat__value">@ViewBag.TotalCategories</div></div></div>
+    <div class="col-6 col-xl-3"><div class="admin-card admin-stat"><div class="d-flex justify-content-between"><span class="admin-stat__label">Pedidos</span><i class="bi bi-receipt admin-stat__icon"></i></div><div class="admin-stat__value">@ViewBag.TotalOrders</div></div></div>
+    <div class="col-6 col-xl-3"><div class="admin-card admin-stat"><div class="d-flex justify-content-between"><span class="admin-stat__label">Pendentes</span><i class="bi bi-hourglass-split admin-stat__icon"></i></div><div class="admin-stat__value">@ViewBag.PendingOrders</div></div></div>
 </div>
+<div class="row g-4">
+    <div class="col-xl-8"><div class="admin-table-card"><div class="d-flex justify-content-between align-items-center p-4"><div><p class="admin-kicker mb-1">Movimentação</p><h2 class="admin-section-title mb-0">Pedidos recentes</h2></div><a asp-controller="Orders" asp-action="Index" class="btn btn-outline-dark admin-btn">Ver todos</a></div><div class="table-responsive"><table class="table admin-table"><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Status</th><th class="text-end">Total</th></tr></thead><tbody>
+    @if (recentOrders.Any()) { foreach (var order in recentOrders) { <tr><td><a asp-controller="Orders" asp-action="Details" asp-route-id="@order.Id" class="fw-semibold text-dark">#@order.Id</a></td><td>@order.CustomerName</td><td>@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td><td><span class="admin-status">@order.Status</span></td><td class="text-end fw-semibold">@order.Total.ToString("C")</td></tr> } } else { <tr><td colspan="5" class="admin-empty">Ainda não há pedidos para exibir.</td></tr> }
+    </tbody></table></div></div></div>
+    <div class="col-xl-4"><div class="admin-table-card h-100"><div class="p-4"><p class="admin-kicker mb-1">Atenção</p><h2 class="admin-section-title mb-0">Estoque baixo</h2></div><div class="px-4 pb-4">
+    @if (lowStockProducts.Any()) { foreach (var product in lowStockProducts) { <div class="d-flex justify-content-between align-items-center border-top py-3"><div><strong class="d-block">@product.Name</strong><small class="text-secondary">@product.Price.ToString("C")</small></div><span class="admin-status @(product.Stock == 0 ? "text-danger" : "")">@product.Stock un.</span></div> } } else { <p class="admin-empty mb-0">Nenhum alerta no momento.</p> }
+    </div></div></div>
+</div>
+<p class="small text-secondary mt-4 mb-0"><i class="bi bi-info-circle me-1"></i>Pedidos pendentes não representam receita recebida.</p>

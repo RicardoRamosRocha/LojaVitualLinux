@@ -26,10 +26,19 @@ export type OrderItemResponse = {
 export type OrderResponse = {
   id: number;
   status: string;
+  createdAt?: string;
+  shippingMethod?: string;
   subtotal: number;
   shippingCost: number;
   total: number;
   items: OrderItemResponse[];
+};
+
+export type OrderQuoteResponse = {
+  shippingMethod: ShippingMethod;
+  subtotal: number;
+  shippingCost: number;
+  total: number;
 };
 
 export type OrderError = {

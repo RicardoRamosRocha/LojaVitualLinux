@@ -31,6 +31,9 @@ namespace LojaVirtual.Models
 
         public ICollection<OrderStockReservation> StockReservations { get; set; }
             = new List<OrderStockReservation>();
+
+        public ICollection<OrderAccessCredential> AccessCredentials { get; set; }
+            = new List<OrderAccessCredential>();
         
     }
 }

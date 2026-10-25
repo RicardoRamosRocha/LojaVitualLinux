@@ -6,8 +6,10 @@ using System.Text.Json;
 using LojaVirtual.Data;
 using LojaVirtual.Extensions;
 using LojaVirtual.Models;
+using LojaVirtual.Services;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace LojaVirtual.Controllers;
@@ -23,11 +25,54 @@ public sealed class ApiOrdersController : ControllerBase
 
     private readonly AppDbContext _context;
     private readonly IAntiforgery _antiforgery;
+    private readonly IOrderAccessCredentialService _orderAccess;
 
-    public ApiOrdersController(AppDbContext context, IAntiforgery antiforgery)
+    public ApiOrdersController(
+        AppDbContext context,
+        IAntiforgery antiforgery,
+        IOrderAccessCredentialService orderAccess)
     {
         _context = context;
         _antiforgery = antiforgery;
+        _orderAccess = orderAccess;
+    }
+
+    [HttpGet("authorized")]
+    [EnableRateLimiting("order-tracking")]
+    public async Task<ActionResult<IReadOnlyList<ApiOrderResponse>>> GetAuthorizedOrders(
+        CancellationToken cancellationToken)
+    {
+        var access = await _orderAccess.ResolveAsync(Request, cancellationToken);
+        if (access.Count == 0)
+        {
+            return Unauthorized();
+        }
+
+        var orderIds = access.Select(item => item.Credential.OrderId).Distinct().ToArray();
+        var orders = await _context.Orders
+            .Include(order => order.Items)
+            .Where(order => orderIds.Contains(order.Id))
+            .ToDictionaryAsync(order => order.Id, cancellationToken);
+
+        var result = access
+            .Select(item => orders.TryGetValue(item.Credential.OrderId, out var order)
+                ? ToResponse(order)
+                : null)
+            .Where(order => order is not null)
+            .Cast<ApiOrderResponse>()
+            .ToArray();
+
+        return Ok(result);
+    }
+
+    [HttpPost("authorized/revoke")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("order-tracking")]
+    public async Task<IActionResult> RevokeAuthorizedOrders(CancellationToken cancellationToken)
+    {
+        await _orderAccess.RevokeAllAsync(Request, cancellationToken);
+        _orderAccess.DeleteCookie(Response);
+        return NoContent();
     }
 
     [HttpPost]
@@ -49,9 +94,19 @@ public sealed class ApiOrdersController : ControllerBase
 
         if (previousOrder is not null)
         {
-            return previousOrder.IdempotencyFingerprint == fingerprint
-                ? Ok(ToResponse(previousOrder))
-                : Conflict(ApiOrderError.IdempotencyConflict());
+            if (previousOrder.IdempotencyFingerprint != fingerprint)
+            {
+                return Conflict(ApiOrderError.IdempotencyConflict());
+            }
+
+            var retryAccess = await _orderAccess.PrepareAsync(previousOrder.Id, Request);
+            if (retryAccess.NewCredential is not null)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            _orderAccess.WriteCookie(Response, retryAccess);
+            return Ok(ToResponse(previousOrder));
         }
 
         var cart = ReadCart();
@@ -151,7 +206,11 @@ public sealed class ApiOrdersController : ControllerBase
         try
         {
             await _context.SaveChangesAsync();
+            var orderAccess = await _orderAccess.PrepareAsync(order.Id, Request);
+            await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            _orderAccess.WriteCookie(Response, orderAccess);
         }
         catch (DbUpdateException)
         {
@@ -164,6 +223,13 @@ public sealed class ApiOrdersController : ControllerBase
 
             if (previousOrder is not null && previousOrder.IdempotencyFingerprint == fingerprint)
             {
+                var retryAccess = await _orderAccess.PrepareAsync(previousOrder.Id, Request);
+                if (retryAccess.NewCredential is not null)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                _orderAccess.WriteCookie(Response, retryAccess);
                 return Ok(ToResponse(previousOrder));
             }
 
@@ -173,6 +239,45 @@ public sealed class ApiOrdersController : ControllerBase
         HttpContext.Session.Remove(CartSessionKey);
 
         return Created($"/api/orders/{order.Id}", ToResponse(order, subtotal, shippingCost, total));
+    }
+
+    [HttpGet("quote")]
+    public async Task<ActionResult<ApiOrderQuoteResponse>> Quote(
+        [FromQuery] string shippingMethod,
+        CancellationToken cancellationToken)
+    {
+        var normalizedShippingMethod = shippingMethod.Trim().ToUpperInvariant();
+        if (!ShippingCosts.TryGetValue(normalizedShippingMethod, out var shippingCost))
+        {
+            return BadRequest(ApiOrderError.InvalidShippingMethod());
+        }
+
+        var cart = ReadCart();
+        if (cart.Count == 0)
+        {
+            return BadRequest(ApiOrderError.EmptyCart());
+        }
+
+        var quantities = cart
+            .GroupBy(item => item.ProductId)
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
+        var products = await _context.Products
+            .Where(product => quantities.Keys.Contains(product.Id))
+            .ToDictionaryAsync(product => product.Id, cancellationToken);
+
+        if (quantities.Keys.Any(productId => !products.TryGetValue(productId, out var product) || !product.IsActive))
+        {
+            return Conflict(ApiOrderError.InvalidCart([]));
+        }
+
+        var subtotal = quantities.Sum(item => products[item.Key].Price * item.Value);
+        return Ok(new ApiOrderQuoteResponse
+        {
+            ShippingMethod = normalizedShippingMethod,
+            Subtotal = subtotal,
+            ShippingCost = shippingCost,
+            Total = subtotal + shippingCost
+        });
     }
 
     private async Task ReleaseExpiredReservationsAsync()
@@ -230,6 +335,8 @@ public sealed class ApiOrdersController : ControllerBase
         {
             Id = order.Id,
             Status = order.Status,
+            CreatedAt = order.CreatedAt,
+            ShippingMethod = order.ShippingMethod,
             Subtotal = calculatedSubtotal,
             ShippingCost = calculatedShipping,
             Total = total ?? order.Total,
@@ -300,10 +407,20 @@ public sealed class ApiOrderResponse
 {
     public int Id { get; init; }
     public string Status { get; init; } = string.Empty;
+    public DateTime CreatedAt { get; init; }
+    public string ShippingMethod { get; init; } = string.Empty;
     public decimal Subtotal { get; init; }
     public decimal ShippingCost { get; init; }
     public decimal Total { get; init; }
     public IReadOnlyList<ApiOrderItemResponse> Items { get; init; } = [];
+}
+
+public sealed class ApiOrderQuoteResponse
+{
+    public string ShippingMethod { get; init; } = string.Empty;
+    public decimal Subtotal { get; init; }
+    public decimal ShippingCost { get; init; }
+    public decimal Total { get; init; }
 }
 
 public sealed class ApiOrderItemResponse

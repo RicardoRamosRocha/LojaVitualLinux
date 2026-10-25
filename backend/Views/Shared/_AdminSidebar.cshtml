@@ -1,0 +1,25 @@
+@inject IConfiguration Configuration
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var storefrontUrl = Configuration["Storefront:BaseUrl"];
+    bool IsActive(string name) => string.Equals(controller, name, StringComparison.OrdinalIgnoreCase);
+}
+<div class="admin-sidebar-inner">
+    <a class="admin-brand" asp-controller="Admin" asp-action="Index">Angel <span>Acessórios</span></a>
+    <p class="admin-nav-label">Gestão</p>
+    <nav class="admin-nav" aria-label="Navegação administrativa">
+        <a class="@(IsActive("Admin") ? "is-active" : "")" asp-controller="Admin" asp-action="Index"><i class="bi bi-grid-1x2-fill"></i>Dashboard</a>
+        <a class="@(IsActive("Products") ? "is-active" : "")" asp-controller="Products" asp-action="Index"><i class="bi bi-box-seam"></i>Produtos</a>
+        <a class="@(IsActive("Orders") ? "is-active" : "")" asp-controller="Orders" asp-action="Index"><i class="bi bi-receipt"></i>Pedidos</a>
+    </nav>
+    <div class="admin-sidebar-footer">
+        @if (!string.IsNullOrWhiteSpace(storefrontUrl))
+        {
+            <a class="admin-store-link" href="@storefrontUrl" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i>Ver loja</a>
+        }
+        <form asp-controller="Account" asp-action="Logout" method="post">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="admin-logout"><i class="bi bi-box-arrow-right"></i>Sair</button>
+        </form>
+    </div>
+</div>

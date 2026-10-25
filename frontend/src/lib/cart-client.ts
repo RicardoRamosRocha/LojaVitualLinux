@@ -10,7 +10,12 @@ type CartFetchResult = {
 async function parseResponse(response: Response): Promise<CartResponse> {
   const data = (await response.json().catch(() => null)) as CartResponse | CartError | null;
   if (!response.ok) {
-    throw new Error((data as CartError | null)?.message ?? "Não foi possível atualizar o carrinho.");
+    const errorData = data as CartError | null;
+    if (response.status === 409 && errorData?.code === "insufficient_stock" && typeof errorData.availableStock === "number") {
+      const availableStock = errorData.availableStock;
+      throw new Error(`Há apenas ${availableStock} unidade${availableStock === 1 ? "" : "s"} disponível${availableStock === 1 ? "" : "is"} deste produto.`);
+    }
+    throw new Error(errorData?.message ?? "Não foi possível atualizar o carrinho.");
   }
   return data as CartResponse;
 }

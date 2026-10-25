@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { fetchCart } from "@/lib/cart-client";
 import { resolveMediaUrl } from "@/lib/api";
 import type { CartResponse } from "@/lib/cart-types";
 import { emptyCart } from "@/lib/cart-types";
-import { OrderApiError, prepareOrder } from "@/lib/order-client";
-import type { CreateOrderRequest, OrderResponse, ShippingMethod } from "@/lib/order-types";
+import { getOrderQuote, OrderApiError, OrderSubmissionUncertainError, prepareOrder } from "@/lib/order-client";
+import type { CreateOrderRequest, OrderQuoteResponse, OrderResponse, ShippingMethod } from "@/lib/order-types";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const checkoutStorageKey = "angel-checkout-order-v1";
@@ -32,10 +32,22 @@ const initialForm: CheckoutForm = {
 };
 
 function createIdempotencyKey() {
-  return `web-checkout-${crypto.randomUUID()}`;
+  if (typeof crypto.randomUUID === "function") {
+    return `web-checkout-${crypto.randomUUID()}`;
+  }
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return `web-checkout-${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
 }
 
 function formatOrderError(error: unknown) {
+  if (error instanceof OrderSubmissionUncertainError) {
+    return "A resposta não chegou. O pedido pode ter sido criado; verifique Meus pedidos ou tente novamente usando o mesmo envio.";
+  }
   if (!(error instanceof OrderApiError)) return "Não foi possível concluir agora. Confira sua conexão e tente novamente.";
   if (error.status === 400) {
     if (error.code === "empty_cart") return "Seu carrinho está vazio.";
@@ -67,7 +79,10 @@ export function CheckoutView() {
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [cartError, setCartError] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<OrderQuoteResponse | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderResponse | null>(() => readStoredOrder()?.order ?? null);
   const [form, setForm] = useState<CheckoutForm>(initialForm);
   const [idempotencyKey, setIdempotencyKey] = useState(() => readStoredOrder()?.key ?? "");
@@ -75,20 +90,41 @@ export function CheckoutView() {
 
   useEffect(() => {
     fetchCart()
-      .then((result) => { setCart(result.cart); setCsrfToken(result.csrfToken); })
-      .catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Não foi possível carregar o resumo."))
+      .then((result) => {
+        setCart(result.cart);
+        setCsrfToken(result.csrfToken);
+        setCartError(null);
+      })
+      .catch((caughtError) => setCartError(caughtError instanceof Error ? caughtError.message : "Não foi possível carregar o resumo."))
       .finally(() => setLoading(false));
   }, [cartLoadAttempt]);
 
-  const totalBeforeOrder = useMemo(() => cart.subtotal, [cart.subtotal]);
+  useEffect(() => {
+    if (loading || cartError || cart.items.length === 0) return;
+
+    getOrderQuote(form.shippingMethod)
+      .then((result) => {
+        setQuote(result);
+        setQuoteError(null);
+      })
+      .catch((caughtError) => {
+        setQuote(null);
+        setQuoteError(caughtError instanceof Error ? caughtError.message : "Não foi possível calcular o frete.");
+      });
+  }, [cart.items.length, cart.subtotal, cartError, form.shippingMethod, loading]);
+
   const requiresAddress = form.shippingMethod !== "RETIRADA";
 
   function updateField(field: keyof CheckoutForm, value: string) {
+    if (field === "shippingMethod") {
+      setQuote(null);
+      setQuoteError(null);
+    }
     setForm((current) => ({ ...current, [field]: value }));
   }
 
   function retryCartLoad() {
-    setError(null);
+    setCartError(null);
     setLoading(true);
     setCartLoadAttempt((attempt) => attempt + 1);
   }
@@ -96,10 +132,14 @@ export function CheckoutView() {
   async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting || order) return;
-    if (!csrfToken) { setError("Não foi possível validar sua sessão. Recarregue a página e tente novamente."); return; }
+    if (!csrfToken) { setOrderError("Não foi possível validar sua sessão. Recarregue a página e tente novamente."); return; }
+    if (!quote || quote.shippingMethod !== form.shippingMethod) {
+      setOrderError("Aguarde o cálculo do frete antes de finalizar o pedido.");
+      return;
+    }
 
     setSubmitting(true);
-    setError(null);
+    setOrderError(null);
 
     try {
       const key = idempotencyKey || createIdempotencyKey();
@@ -121,7 +161,7 @@ export function CheckoutView() {
       setOrder(created);
       setCart(emptyCart);
     } catch (caughtError) {
-      setError(formatOrderError(caughtError));
+      setOrderError(formatOrderError(caughtError));
     } finally {
       setSubmitting(false);
     }
@@ -134,10 +174,16 @@ export function CheckoutView() {
         {!order && <Link className="back-link" href="/carrinho">← Voltar ao carrinho</Link>}
       </div>
       {loading && <div className="cart-message">Carregando seu resumo...</div>}
-      {error && (
+      {cartError && (
         <div className="cart-message cart-message--error" role="alert">
-          <p>{error}</p>
-          {!order && <button className="cart-button cart-button--retry" type="button" onClick={retryCartLoad}>Tentar novamente</button>}
+          <p>Não foi possível carregar o resumo do carrinho. {cartError}</p>
+          <button className="cart-button cart-button--retry" type="button" onClick={retryCartLoad}>Tentar novamente</button>
+        </div>
+      )}
+      {orderError && (
+        <div className="cart-message cart-message--error" role="alert">
+          <p>{orderError}</p>
+          {orderError.startsWith("A resposta não chegou") && <Link className="back-link" href="/pedidos">Ver meus pedidos</Link>}
         </div>
       )}
       {!loading && order && (
@@ -146,10 +192,11 @@ export function CheckoutView() {
           <h2>Seu pedido está pendente.</h2>
           <p>Recebemos os itens e reservamos o estoque. Este pedido ainda não representa pagamento confirmado.</p>
           <div className="checkout-confirmation__total"><span>Total do pedido</span><strong>{currency.format(order.total)}</strong></div>
+          <Link className="cart-button cart-button--link" href={`/pedidos/${order.id}`}>Acompanhar pedido</Link>
           <Link className="hero-cta" href="/">Voltar à coleção <span>↗</span></Link>
         </div>
       )}
-      {!loading && !order && !error && cart.items.length === 0 && (
+      {!loading && !order && !cartError && cart.items.length === 0 && (
         <div className="cart-message"><span className="catalog-message__eyebrow">Nada para finalizar</span><h2>Seu carrinho está vazio.</h2><p>Volte à coleção para escolher suas peças.</p><Link className="hero-cta" href="/#colecao">Ver coleção <span>↗</span></Link></div>
       )}
       {!loading && !order && cart.items.length > 0 && (
@@ -170,7 +217,7 @@ export function CheckoutView() {
               <label>Estado<input required={requiresAddress} maxLength={2} value={form.state} onChange={(event) => updateField("state", event.target.value.toUpperCase())} autoComplete="address-level1" /></label>
             </div>
             <p className="checkout-hint">O frete e o total definitivo são calculados e validados pelo servidor. O pedido ficará pendente; nenhum pagamento será iniciado.</p>
-            <button className="cart-button" type="submit" disabled={submitting}>{submitting ? "Preparando pedido..." : "Finalizar pedido"}</button>
+            <button className="cart-button" type="submit" disabled={submitting || !quote}>{submitting ? "Preparando pedido..." : "Finalizar pedido"}</button>
             <p className="cart-note">{submitting ? "Não feche esta página. O mesmo envio será reutilizado se for necessário tentar novamente." : "Você poderá revisar o status do pedido após o envio."}</p>
           </form>
           <aside className="checkout-summary">
@@ -182,9 +229,9 @@ export function CheckoutView() {
                   <img src={image} alt="" />) : <span>Angel</span>}</div><div><strong>{item.name}</strong><span>{item.quantity} × {currency.format(item.unitPrice)}</span></div><b>{currency.format(item.subtotal)}</b></div>;
               })}
             </div>
-            <div className="checkout-summary__line"><span>Subtotal</span><strong>{currency.format(cart.subtotal)}</strong></div>
-            <div className="checkout-summary__line"><span>Frete</span><strong>Calculado pelo servidor</strong></div>
-            <div className="checkout-summary__total"><span>Total antes do frete</span><strong>{currency.format(totalBeforeOrder)}</strong></div>
+            <div className="checkout-summary__line"><span>Subtotal</span><strong>{currency.format(quote?.subtotal ?? cart.subtotal)}</strong></div>
+            <div className="checkout-summary__line"><span>Frete</span><strong>{quote ? (quote.shippingCost === 0 ? "Grátis" : currency.format(quote.shippingCost)) : (quoteError ?? "Calculando...")}</strong></div>
+            <div className="checkout-summary__total"><span>Total</span><strong>{quote ? currency.format(quote.total) : "Indisponível"}</strong></div>
           </aside>
         </div>
       )}

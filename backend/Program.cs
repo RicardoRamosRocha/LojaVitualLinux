@@ -4,7 +4,10 @@ using LojaVirtual.Web.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Globalization;
+using System.Threading.RateLimiting;
+using LojaVirtual.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,6 +72,21 @@ builder.Services.AddHttpClient<
     IMercadoPagoService,
     MercadoPagoService>();
 builder.Services.AddScoped<AdminProvisioningService>();
+builder.Services.AddScoped<IOrderAccessCredentialService, OrderAccessCredentialService>();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("order-tracking", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 
 builder.Services.AddDistributedMemoryCache();
 
@@ -101,6 +119,7 @@ app.UseSession();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
