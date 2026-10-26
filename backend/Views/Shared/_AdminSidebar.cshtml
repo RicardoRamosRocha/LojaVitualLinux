@@ -10,6 +10,7 @@
     <nav class="admin-nav" aria-label="Navegação administrativa">
         <a class="@(IsActive("Admin") ? "is-active" : "")" asp-controller="Admin" asp-action="Index"><i class="bi bi-grid-1x2-fill"></i>Dashboard</a>
         <a class="@(IsActive("Products") ? "is-active" : "")" asp-controller="Products" asp-action="Index"><i class="bi bi-box-seam"></i>Produtos</a>
+        <a class="@(IsActive("Categories") ? "is-active" : "")" asp-controller="Categories" asp-action="Index"><i class="bi bi-tags"></i>Categorias</a>
         <a class="@(IsActive("Orders") ? "is-active" : "")" asp-controller="Orders" asp-action="Index"><i class="bi bi-receipt"></i>Pedidos</a>
     </nav>
     <div class="admin-sidebar-footer">

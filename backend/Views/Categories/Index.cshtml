@@ -1,0 +1,52 @@
+@model IEnumerable<LojaVirtual.Controllers.CategoriesController.CategoryListItem>
+@{
+    ViewData["Title"] = "Categorias";
+}
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+    <div>
+        <p class="admin-kicker mb-2">Catálogo</p>
+        <h2 class="admin-section-title mb-1">Categorias</h2>
+        <p class="text-secondary mb-0">Organize os produtos da sua loja.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-dark admin-btn"><i class="bi bi-plus-lg me-2"></i>Nova categoria</a>
+</div>
+
+<div class="admin-table-card">
+    <div class="table-responsive">
+        <table class="table admin-table align-middle">
+            <thead><tr><th>Nome</th><th>Produtos associados</th><th class="text-end">Ações</th></tr></thead>
+            <tbody>
+            @if (Model.Any())
+            {
+                foreach (var category in Model)
+                {
+                    <tr>
+                        <td class="fw-semibold">@category.Name</td>
+                        <td><span class="admin-status">@category.ProductCount</span></td>
+                        <td class="text-end">
+                            <div class="d-inline-flex flex-wrap justify-content-end gap-2">
+                                <a asp-action="Edit" asp-route-id="@category.Id" class="btn btn-outline-dark admin-btn">Editar</a>
+                                <a asp-action="Delete" asp-route-id="@category.Id" class="btn btn-outline-danger admin-btn">Excluir</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr><td colspan="3" class="admin-empty">Nenhuma categoria cadastrada.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

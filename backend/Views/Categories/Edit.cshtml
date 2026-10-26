@@ -1,0 +1,28 @@
+@model LojaVirtual.Models.Category
+@{
+    ViewData["Title"] = "Editar categoria";
+}
+
+<div class="admin-panel p-4 p-md-5" style="max-width: 720px;">
+    <p class="admin-kicker mb-2">Catálogo</p>
+    <h2 class="admin-section-title mb-1">Editar categoria</h2>
+    <p class="text-secondary mb-4">Atualize o nome da categoria.</p>
+    <form asp-action="Edit" method="post">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+        <div class="mb-4">
+            <label asp-for="Name" class="form-label fw-semibold">Nome</label>
+            <input asp-for="Name" class="form-control form-control-lg" autocomplete="off" autofocus />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-dark admin-btn">Salvar alterações</button>
+            <a asp-action="Index" class="btn btn-outline-dark admin-btn">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

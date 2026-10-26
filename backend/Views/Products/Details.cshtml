@@ -1,233 +1,134 @@
 @model LojaVirtual.Models.Product
 
 @{
-ViewData["Title"] = Model.Name;
+    ViewData["Title"] = "Detalhes do produto";
+    var medias = Model.ProductMedias?.ToList() ?? new List<LojaVirtual.Models.ProductMedia>();
+    var primaryMedia = medias.FirstOrDefault(media => media.Type == "image") ?? medias.FirstOrDefault();
+    var additionalMedias = primaryMedia is null
+        ? medias
+        : medias.Where(media => media.Id != primaryMedia.Id).ToList();
+    var carouselMedias = primaryMedia is null
+        ? additionalMedias
+        : new[] { primaryMedia }.Concat(additionalMedias).ToList();
 }
 
-<partial name="_Navbar" />
-
-<div class="product-page">
-
-```
-<section class="py-5">
-
-    <div class="container">
-
-        <div class="row g-5">
-
-            <!-- GALERIA -->
-            <div class="col-lg-6">
-
-                @if (Model.ProductMedias != null &&
-                     Model.ProductMedias.Any())
-                {
-                    <div id="productCarousel"
-                         class="carousel slide"
-                         data-bs-ride="carousel">
-
-                        <div class="carousel-inner rounded-4 shadow">
-
-                            @{
-                                var medias = Model.ProductMedias.ToList();
-                            }
-
-                            @for (int i = 0; i < medias.Count; i++)
-                            {
-                                var media = medias[i];
-
-                                <div class="carousel-item @(i == 0 ? "active" : "")">
-
-                                    @if (media.Type == "image")
-                                    {
-                                        <img src="@media.Url"
-                                             alt="@Model.Name"
-                                             class="d-block w-100 gallery-image" />
-                                    }
-                                    else
-                                    {
-                                        <video controls
-                                               class="w-100 gallery-image">
-
-                                            <source src="@media.Url"
-                                                    type="video/mp4">
-
-                                        </video>
-                                    }
-
-                                </div>
-                            }
-
-                        </div>
-
-                        <button class="carousel-control-prev"
-                                type="button"
-                                data-bs-target="#productCarousel"
-                                data-bs-slide="prev">
-
-                            <span class="carousel-control-prev-icon"></span>
-
-                        </button>
-
-                        <button class="carousel-control-next"
-                                type="button"
-                                data-bs-target="#productCarousel"
-                                data-bs-slide="next">
-
-                            <span class="carousel-control-next-icon"></span>
-
-                        </button>
-
-                    </div>
-
-                    <!-- MINIATURAS -->
-
-                    <div class="d-flex flex-wrap gap-3 mt-4">
-
-                        @for (int i = 0; i < medias.Count; i++)
-                        {
-                            var media = medias[i];
-
-                            <button type="button"
-                                    data-bs-target="#productCarousel"
-                                    data-bs-slide-to="@i"
-                                    class="border-0 bg-transparent p-0">
-
-                                @if (media.Type == "image")
-                                {
-                                    <img src="@media.Url"
-                                         class="thumb-image" />
-                                }
-                                else
-                                {
-                                    <div class="thumb-video">
-
-                                        <i class="bi bi-play-fill fs-2"></i>
-
-                                    </div>
-                                }
-
-                            </button>
-                        }
-
-                    </div>
-
-                }
-
-            </div>
-
-            <!-- DADOS -->
-
-            <div class="col-lg-6">
-
-                <span class="badge bg-dark rounded-pill px-3 py-2 mb-3">
-
-                    Angel Acessórios
-
-                </span>
-
-                <h1 class="fw-bold display-5 mb-3">
-
-                    @Model.Name
-
-                </h1>
-
-                @if (Model.Category != null)
-                {
-                    <p class="text-muted mb-4">
-
-                        Categoria:
-                        <strong>@Model.Category.Name</strong>
-
-                    </p>
-                }
-
-                <div class="fs-1 fw-bold text-dark mb-4">
-
-                    @Model.Price.ToString("C")
-
-                </div>
-
-                <p class="text-muted fs-5 mb-4">
-
-                    @Model.Description
-
-                </p>
-
-                <div class="mb-5">
-
-                    @if (Model.Stock > 0)
-                    {
-                        <span class="badge bg-success px-4 py-3 rounded-pill fs-6">
-
-                            <i class="bi bi-check-circle me-2"></i>
-
-                            @Model.Stock unidades disponíveis
-
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-danger px-4 py-3 rounded-pill fs-6">
-
-                            Sem estoque
-
-                        </span>
-                    }
-
-                </div>
-
-                <div class="d-flex flex-wrap gap-3">
-
-                    <a asp-controller="Cart"
-                       asp-action="Add"
-                       asp-route-id="@Model.Id"
-                       class="btn btn-dark btn-lg rounded-pill px-5">
-
-                        <i class="bi bi-cart me-2"></i>
-
-                        Adicionar ao Carrinho
-
-                    </a>
-
-                    <a asp-controller="Cart"
-                       asp-action="Index"
-                       class="btn btn-outline-dark btn-lg rounded-pill px-5">
-
-                        Ver Carrinho
-
-                    </a>
-
-                </div>
-
-            </div>
-
-        </div>
-
+<div class="admin-product-header">
+    <div>
+        <p class="admin-kicker mb-2">Catálogo / Produto</p>
+        <h2 class="admin-section-title mb-1">@Model.Name</h2>
+        <p class="text-secondary mb-0">Visualize os dados e as mídias cadastradas.</p>
     </div>
-
-</section>
-
-@if (ViewBag.RelatedProducts != null)
-{
-    <section class="py-5 bg-light">
-
-        <div class="container">
-
-            <h3 class="fw-bold mb-4">
-
-                Você também pode gostar
-
-            </h3>
-
-            <partial name="_ProductGrid"
-                     model="ViewBag.RelatedProducts" />
-
-        </div>
-
-    </section>
-}
-```
-
+    <div class="admin-product-actions">
+        <a asp-action="Index" class="btn btn-outline-dark admin-btn">
+            <i class="bi bi-arrow-left me-2"></i>Voltar
+        </a>
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-dark admin-btn">
+            <i class="bi bi-pencil-square me-2"></i>Editar
+        </a>
+    </div>
 </div>
 
-<partial name="_Footer" />
+<div class="admin-product-detail">
+    <section class="admin-card admin-product-media-card" aria-label="Mídias do produto">
+        @if (primaryMedia is not null)
+        {
+            <div id="adminProductMediaCarousel" class="carousel slide" data-bs-interval="false">
+                <div class="carousel-inner admin-product-carousel">
+                    @for (var index = 0; index < carouselMedias.Count; index++)
+                    {
+                        var media = carouselMedias[index];
+                        <div class="carousel-item @(index == 0 ? "active" : "")">
+                            @if (media.Type == "image")
+                            {
+                                <img src="@media.Url" alt="@Model.Name" class="admin-product-main-media" />
+                            }
+                            else
+                            {
+                                <video controls class="admin-product-main-media" preload="metadata">
+                                    <source src="@media.Url" type="video/mp4" />
+                                </video>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (carouselMedias.Count > 1)
+                {
+                    <button class="carousel-control-prev" type="button" data-bs-target="#adminProductMediaCarousel" data-bs-slide="prev" aria-label="Mídia anterior">
+                        <span class="carousel-control-prev-icon"></span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#adminProductMediaCarousel" data-bs-slide="next" aria-label="Próxima mídia">
+                        <span class="carousel-control-next-icon"></span>
+                    </button>
+                }
+            </div>
+
+            @if (additionalMedias.Count > 0)
+            {
+                <div class="admin-product-thumbnails" aria-label="Mídias adicionais">
+                    @for (var index = 0; index < additionalMedias.Count; index++)
+                    {
+                        var media = additionalMedias[index];
+                        var carouselIndex = index + 1;
+                        <button type="button" class="admin-product-thumbnail" data-bs-target="#adminProductMediaCarousel" data-bs-slide-to="@carouselIndex" aria-label="Abrir mídia adicional @(index + 1)">
+                            @if (media.Type == "image")
+                            {
+                                <img src="@media.Url" alt="" />
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-play-fill"></i></span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="admin-product-empty-media">
+                <i class="bi bi-image"></i>
+                <span>Nenhuma mídia cadastrada</span>
+            </div>
+        }
+    </section>
+
+    <section class="admin-card admin-product-info-card" aria-label="Informações do produto">
+        <div class="admin-product-info-topline">
+            <span class="admin-status">Produto #@Model.Id</span>
+            @if (Model.IsActive)
+            {
+                <span class="admin-status admin-status--success">Ativo</span>
+            }
+            else
+            {
+                <span class="admin-status">Inativo</span>
+            }
+        </div>
+
+        <h1 class="admin-product-name">@Model.Name</h1>
+        <div class="admin-product-price">@Model.Price.ToString("C")</div>
+
+        <dl class="admin-product-facts">
+            <div>
+                <dt>Categoria</dt>
+                <dd>@(Model.Category?.Name ?? "Sem categoria")</dd>
+            </div>
+            <div>
+                <dt>Estoque</dt>
+                <dd class="@(Model.Stock > 0 ? "text-success" : "text-danger")">@Model.Stock unidade(s)</dd>
+            </div>
+        </dl>
+
+        <div class="admin-product-description">
+            <h3>Descrição</h3>
+            <p>@(string.IsNullOrWhiteSpace(Model.Description) ? "Nenhuma descrição cadastrada." : Model.Description)</p>
+        </div>
+
+        <div class="admin-product-flags">
+            @if (Model.IsFeatured) { <span class="admin-status">Destaque</span> }
+            @if (Model.IsNewCollection) { <span class="admin-status">Nova coleção</span> }
+            @if (Model.IsBestSeller) { <span class="admin-status">Mais vendido</span> }
+        </div>
+    </section>
+</div>

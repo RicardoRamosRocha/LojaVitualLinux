@@ -59,8 +59,9 @@ namespace LojaVirtual.Controllers
         }
 
         // GET: Products/Create
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
+            await PopulateCategoriesAsync();
             return View();
         }
 
@@ -71,6 +72,12 @@ namespace LojaVirtual.Controllers
           List<IFormFile>? imageFiles,
           List<IFormFile>? videoFiles)
         {
+            if (!ModelState.IsValid)
+            {
+                await PopulateCategoriesAsync(product.CategoryId);
+                return View(product);
+            }
+
             try
             {
                 _context.Products.Add(product);
@@ -90,10 +97,9 @@ namespace LojaVirtual.Controllers
                                 Guid.NewGuid() +
                                 Path.GetExtension(imageFile.FileName);
 
-                            var folder =
-                                Path.Combine(
-                                    Directory.GetCurrentDirectory(),
-                                    "wwwroot/images/products");
+                            var folder = Path.Combine(
+                                _webHostEnvironment.WebRootPath,
+                                "images/products");
 
                             Directory.CreateDirectory(folder);
 
@@ -130,10 +136,9 @@ namespace LojaVirtual.Controllers
                                 Guid.NewGuid() +
                                 Path.GetExtension(videoFile.FileName);
 
-                            var folder =
-                                Path.Combine(
-                                    Directory.GetCurrentDirectory(),
-                                    "wwwroot/videos/products");
+                            var folder = Path.Combine(
+                                _webHostEnvironment.WebRootPath,
+                                "videos/products");
 
                             Directory.CreateDirectory(folder);
 
@@ -159,11 +164,14 @@ namespace LojaVirtual.Controllers
 
                 await _context.SaveChangesAsync();
 
+                TempData["SuccessMessage"] = "Produto cadastrado com sucesso.";
                 return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex)
+            catch (DbUpdateException)
             {
-                return Content(ex.ToString());
+                ModelState.AddModelError(string.Empty, "Não foi possível cadastrar o produto. Tente novamente.");
+                await PopulateCategoriesAsync(product.CategoryId);
+                return View(product);
             }
         }
 
@@ -184,6 +192,7 @@ namespace LojaVirtual.Controllers
                 return NotFound();
             }
 
+            await PopulateCategoriesAsync(product.CategoryId);
             return View(product);
         }
 
@@ -198,6 +207,12 @@ namespace LojaVirtual.Controllers
        List<IFormFile>? imageFiles,
        List<IFormFile>? videoFiles)
         {
+            if (!ModelState.IsValid)
+            {
+                await PopulateCategoriesAsync(product.CategoryId);
+                return View(product);
+            }
+
             var existing = await _context.Products
                 .Include(p => p.ProductMedias)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -296,7 +311,18 @@ namespace LojaVirtual.Controllers
 
             await _context.SaveChangesAsync();
 
+            TempData["SuccessMessage"] = "Produto atualizado com sucesso.";
             return RedirectToAction(nameof(Index));
+        }
+
+        private async Task PopulateCategoriesAsync(int? selectedCategoryId = null)
+        {
+            var categories = await _context.Categories
+                .AsNoTracking()
+                .OrderBy(category => category.Name)
+                .ToListAsync();
+
+            ViewBag.CategoryId = new SelectList(categories, nameof(Category.Id), nameof(Category.Name), selectedCategoryId);
         }
         // GET: Products/Delete/5
         public async Task<IActionResult> Delete(int? id)

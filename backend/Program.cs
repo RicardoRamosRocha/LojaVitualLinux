@@ -118,6 +118,17 @@ app.UseSession();
 
 app.UseStaticFiles();
 
+// Compatibilidade com uploads antigos gravados no wwwroot legado do content root.
+var legacyStaticRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+if (Directory.Exists(legacyStaticRoot)
+    && !string.Equals(legacyStaticRoot, app.Environment.WebRootPath, StringComparison.OrdinalIgnoreCase))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(legacyStaticRoot)
+    });
+}
+
 app.UseRouting();
 app.UseRateLimiter();
 

@@ -1,0 +1,26 @@
+@model LojaVirtual.Controllers.CategoriesController.CategoryDeleteViewModel
+@{
+    ViewData["Title"] = "Excluir categoria";
+}
+
+<div class="admin-panel p-4 p-md-5" style="max-width: 720px;">
+    <p class="admin-kicker mb-2">Catálogo</p>
+    <h2 class="admin-section-title mb-3">Excluir categoria</h2>
+    @if (Model.ProductCount > 0)
+    {
+        <div class="alert alert-warning" role="alert">
+            A categoria <strong>@Model.Name</strong> está associada a @Model.ProductCount produto(s) e não pode ser excluída.
+        </div>
+        <a asp-action="Index" class="btn btn-dark admin-btn">Voltar para categorias</a>
+    }
+    else
+    {
+        <p class="text-secondary">Confirma a exclusão de <strong>@Model.Name</strong>? Essa ação não pode ser desfeita.</p>
+        <form asp-action="Delete" method="post" class="d-flex flex-wrap gap-2">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-danger admin-btn">Excluir categoria</button>
+            <a asp-action="Index" class="btn btn-outline-dark admin-btn">Cancelar</a>
+        </form>
+    }
+</div>

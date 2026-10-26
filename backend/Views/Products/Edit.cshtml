@@ -4,8 +4,6 @@
     ViewData["Title"] = "Editar Produto";
 }
 
-<partial name="_Navbar" />
-
 <section class="py-5">
 
     <div class="container">
@@ -36,7 +34,8 @@
                         </div>
 
                         <!-- FORM -->
-                        <form asp-action="Edit" enctype="multipart/form-data">
+                        <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+                            @Html.AntiForgeryToken()
 
                             <input type="hidden" asp-for="Id" />
 
@@ -52,6 +51,14 @@
                                 <span asp-validation-for="Name" class="text-danger small">
                                 </span>
 
+                            </div>
+
+                            <div class="mb-4">
+                                <label asp-for="CategoryId" class="form-label fw-semibold">Categoria</label>
+                                <select asp-for="CategoryId" asp-items="ViewBag.CategoryId" class="form-select form-select-lg rounded-3">
+                                    <option value="">Selecione uma categoria (opcional)</option>
+                                </select>
+                                <span asp-validation-for="CategoryId" class="text-danger small"></span>
                             </div>
 
                             <!-- DESCRIÇÃO -->
@@ -262,8 +269,6 @@
     </div>
 
 </section>
-
-<partial name="_Footer" />
 
 @section Scripts {
 
