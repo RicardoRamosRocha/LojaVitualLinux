@@ -19,6 +19,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderStockReservation> StockReservations { get; set; }
     public DbSet<OrderAccessCredential> OrderAccessCredentials { get; set; }
+    public DbSet<OrderPaymentAttempt> OrderPaymentAttempts { get; set; }
 
     public DbSet<Customer> Customers { get; set; }
 
@@ -83,7 +84,30 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             .IsUnique();
 
         modelBuilder.Entity<OrderAccessCredential>()
-            .HasIndex(credential => new { credential.OrderId, credential.RevokedAt, credential.ExpiresAt });
+                .HasIndex(credential => new { credential.OrderId, credential.RevokedAt, credential.ExpiresAt });
+
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .HasOne(attempt => attempt.Order)
+            .WithMany(order => order.PaymentAttempts)
+            .HasForeignKey(attempt => attempt.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .Property(attempt => attempt.Status).HasMaxLength(40).IsRequired();
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .Property(attempt => attempt.Amount).HasPrecision(18, 2);
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .Property(attempt => attempt.Currency).HasMaxLength(3).IsRequired();
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .Property(attempt => attempt.Provider).HasMaxLength(32).IsRequired();
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .Property(attempt => attempt.IdempotencyKey).HasMaxLength(220).IsRequired();
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .HasIndex(attempt => new { attempt.OrderId, attempt.AttemptNumber }).IsUnique();
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .HasIndex(attempt => attempt.PreferenceId).IsUnique();
+        modelBuilder.Entity<OrderPaymentAttempt>()
+            .HasIndex(attempt => attempt.PaymentId).IsUnique();
 }
 
 

@@ -13,5 +13,7 @@ node_modules/
 wwwroot/uploads/
 
 Migrations/
+!backend/Data/Migrations/
+!backend/Data/Migrations/*.cs
 
 *.db

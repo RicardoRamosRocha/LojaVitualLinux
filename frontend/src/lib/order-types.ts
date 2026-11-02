@@ -31,6 +31,8 @@ export type OrderResponse = {
   subtotal: number;
   shippingCost: number;
   total: number;
+  paymentStatus?: string;
+  checkoutUrl?: string;
   items: OrderItemResponse[];
 };
 

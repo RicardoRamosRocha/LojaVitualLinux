@@ -4,6 +4,7 @@
     ViewData["Title"] = $"Pedido #{Model.Id}";
     var subtotal = Model.Items.Sum(item => item.UnitPrice * item.Quantity);
     var hasNextStatus = OrderStatusWorkflow.TryGetNextStatus(Model.Status, out var nextStatus);
+    var paymentStatus = Model.PaymentAttempts.OrderByDescending(item => item.AttemptNumber).Select(item => item.Status).FirstOrDefault() ?? "Sem pagamento registrado";
 }
 
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
@@ -12,6 +13,7 @@
 </div>
 @if (TempData["StatusSuccess"] is string successMessage) { <div class="alert alert-success" role="status">@successMessage</div> }
 @if (TempData["StatusError"] is string errorMessage) { <div class="alert alert-danger" role="alert">@errorMessage</div> }
+<div class="alert alert-light border" role="status"><strong>Status financeiro:</strong> @paymentStatus</div>
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="admin-panel p-4 mb-4"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="admin-section-title mb-0">Itens</h3><span class="admin-status">@Model.Status</span></div><div class="table-responsive"><table class="table admin-table"><thead><tr><th>Produto</th><th>Quantidade</th><th>Preço unitário</th><th class="text-end">Subtotal</th></tr></thead><tbody>

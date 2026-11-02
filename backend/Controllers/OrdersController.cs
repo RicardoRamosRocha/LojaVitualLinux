@@ -26,6 +26,7 @@ namespace LojaVirtual.Controllers
         public async Task<IActionResult> Index()
         {
             return View(await _context.Orders
+                .Include(order => order.PaymentAttempts)
                 .AsNoTracking()
                 .OrderByDescending(order => order.CreatedAt)
                 .ToListAsync());
@@ -41,6 +42,7 @@ namespace LojaVirtual.Controllers
 
             var order = await _context.Orders
                 .Include(order => order.Items)
+                .Include(order => order.PaymentAttempts)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (order == null)
             {
@@ -77,7 +79,9 @@ namespace LojaVirtual.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateStatus(int id, string nextStatus)
         {
-            var order = await _context.Orders.FirstOrDefaultAsync(item => item.Id == id);
+            var order = await _context.Orders
+                .Include(item => item.PaymentAttempts)
+                .FirstOrDefaultAsync(item => item.Id == id);
             if (order == null)
             {
                 return NotFound();
@@ -86,6 +90,16 @@ namespace LojaVirtual.Controllers
             if (!OrderStatusWorkflow.IsAllowedTransition(order.Status, nextStatus))
             {
                 TempData["StatusError"] = "A transição de status solicitada não é permitida.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            var paymentStatus = order.PaymentAttempts
+                .OrderByDescending(item => item.AttemptNumber)
+                .Select(item => item.Status)
+                .FirstOrDefault();
+            if (order.PaymentAttempts.Count > 0 && paymentStatus != PaymentStatusWorkflow.Approved)
+            {
+                TempData["StatusError"] = "O pedido só pode avançar após pagamento aprovado e estoque confirmado.";
                 return RedirectToAction(nameof(Details), new { id });
             }
 

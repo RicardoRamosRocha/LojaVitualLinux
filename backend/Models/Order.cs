@@ -34,6 +34,9 @@ namespace LojaVirtual.Models
 
         public ICollection<OrderAccessCredential> AccessCredentials { get; set; }
             = new List<OrderAccessCredential>();
+
+        public ICollection<OrderPaymentAttempt> PaymentAttempts { get; set; }
+            = new List<OrderPaymentAttempt>();
         
     }
 }

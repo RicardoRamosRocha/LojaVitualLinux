@@ -73,6 +73,7 @@ builder.Services.AddHttpClient<
     MercadoPagoService>();
 builder.Services.AddScoped<AdminProvisioningService>();
 builder.Services.AddScoped<IOrderAccessCredentialService, OrderAccessCredentialService>();
+builder.Services.AddScoped<OrderPaymentService>();
 
 builder.Services.AddRateLimiter(options =>
 {

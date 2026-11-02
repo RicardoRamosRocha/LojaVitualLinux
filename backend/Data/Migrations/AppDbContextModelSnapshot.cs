@@ -289,6 +289,76 @@ namespace LojaVirtual.Data.Migrations
                     b.ToTable("OrderItems");
                 });
 
+            modelBuilder.Entity("LojaVirtual.Models.OrderPaymentAttempt", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CheckoutUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("varchar(220)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PreferenceId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.HasIndex("PreferenceId")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId", "AttemptNumber")
+                        .IsUnique();
+
+                    b.ToTable("OrderPaymentAttempts");
+                });
+
             modelBuilder.Entity("LojaVirtual.Models.OrderStockReservation", b =>
                 {
                     b.Property<int>("Id")
@@ -569,6 +639,17 @@ namespace LojaVirtual.Data.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("LojaVirtual.Models.OrderPaymentAttempt", b =>
+                {
+                    b.HasOne("LojaVirtual.Models.Order", "Order")
+                        .WithMany("PaymentAttempts")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("LojaVirtual.Models.OrderStockReservation", b =>
                 {
                     b.HasOne("LojaVirtual.Models.Order", "Order")
@@ -669,6 +750,8 @@ namespace LojaVirtual.Data.Migrations
                     b.Navigation("AccessCredentials");
 
                     b.Navigation("Items");
+
+                    b.Navigation("PaymentAttempts");
 
                     b.Navigation("StockReservations");
                 });

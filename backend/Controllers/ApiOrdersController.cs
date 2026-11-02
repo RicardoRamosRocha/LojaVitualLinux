@@ -26,15 +26,18 @@ public sealed class ApiOrdersController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IAntiforgery _antiforgery;
     private readonly IOrderAccessCredentialService _orderAccess;
+    private readonly OrderPaymentService _payments;
 
     public ApiOrdersController(
         AppDbContext context,
         IAntiforgery antiforgery,
-        IOrderAccessCredentialService orderAccess)
+        IOrderAccessCredentialService orderAccess,
+        OrderPaymentService payments)
     {
         _context = context;
         _antiforgery = antiforgery;
         _orderAccess = orderAccess;
+        _payments = payments;
     }
 
     [HttpGet("authorized")]
@@ -51,6 +54,7 @@ public sealed class ApiOrdersController : ControllerBase
         var orderIds = access.Select(item => item.Credential.OrderId).Distinct().ToArray();
         var orders = await _context.Orders
             .Include(order => order.Items)
+            .Include(order => order.PaymentAttempts)
             .Where(order => orderIds.Contains(order.Id))
             .ToDictionaryAsync(order => order.Id, cancellationToken);
 
@@ -79,7 +83,8 @@ public sealed class ApiOrdersController : ControllerBase
     [ValidateAntiForgeryToken]
     public async Task<ActionResult<ApiOrderResponse>> CreateOrder(
         CreateApiOrderRequest request,
-        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey) || idempotencyKey.Length > 200)
         {
@@ -90,6 +95,8 @@ public sealed class ApiOrdersController : ControllerBase
         var fingerprint = CreateFingerprint(request, idempotencyKey);
         var previousOrder = await _context.Orders
             .Include(order => order.Items)
+            .ThenInclude(item => item.Product)
+            .Include(order => order.PaymentAttempts)
             .SingleOrDefaultAsync(order => order.IdempotencyKey == idempotencyKey);
 
         if (previousOrder is not null)
@@ -106,7 +113,8 @@ public sealed class ApiOrdersController : ControllerBase
             }
 
             _orderAccess.WriteCookie(Response, retryAccess);
-            return Ok(ToResponse(previousOrder));
+            var retryPayment = await _payments.EnsurePreferenceAsync(previousOrder, cancellationToken);
+            return Ok(ToResponse(previousOrder, paymentAttempt: retryPayment));
         }
 
         var cart = ReadCart();
@@ -188,6 +196,7 @@ public sealed class ApiOrdersController : ControllerBase
             order.Items.Add(new OrderItem
             {
                 ProductId = productId,
+                Product = products[productId],
                 Quantity = quantity,
                 UnitPrice = products[productId].Price
             });
@@ -205,10 +214,10 @@ public sealed class ApiOrdersController : ControllerBase
         _context.Orders.Add(order);
         try
         {
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             var orderAccess = await _orderAccess.PrepareAsync(order.Id, Request);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             _orderAccess.WriteCookie(Response, orderAccess);
         }
@@ -219,6 +228,8 @@ public sealed class ApiOrdersController : ControllerBase
 
             previousOrder = await _context.Orders
                 .Include(existing => existing.Items)
+                .ThenInclude(item => item.Product)
+                .Include(existing => existing.PaymentAttempts)
                 .SingleOrDefaultAsync(existing => existing.IdempotencyKey == idempotencyKey);
 
             if (previousOrder is not null && previousOrder.IdempotencyFingerprint == fingerprint)
@@ -230,7 +241,8 @@ public sealed class ApiOrdersController : ControllerBase
                 }
 
                 _orderAccess.WriteCookie(Response, retryAccess);
-                return Ok(ToResponse(previousOrder));
+                var retryPayment = await _payments.EnsurePreferenceAsync(previousOrder, cancellationToken);
+                return Ok(ToResponse(previousOrder, paymentAttempt: retryPayment));
             }
 
             return Conflict(ApiOrderError.IdempotencyConflict());
@@ -238,7 +250,8 @@ public sealed class ApiOrdersController : ControllerBase
 
         HttpContext.Session.Remove(CartSessionKey);
 
-        return Created($"/api/orders/{order.Id}", ToResponse(order, subtotal, shippingCost, total));
+        var paymentAttempt = await _payments.EnsurePreferenceAsync(order, cancellationToken);
+        return Created($"/api/orders/{order.Id}", ToResponse(order, subtotal, shippingCost, total, paymentAttempt));
     }
 
     [HttpGet("quote")]
@@ -326,7 +339,8 @@ public sealed class ApiOrdersController : ControllerBase
         Order order,
         decimal? subtotal = null,
         decimal? shippingCost = null,
-        decimal? total = null)
+        decimal? total = null,
+        OrderPaymentAttempt? paymentAttempt = null)
     {
         var calculatedSubtotal = subtotal ?? order.Items.Sum(item => item.UnitPrice * item.Quantity);
         var calculatedShipping = shippingCost ?? ShippingCosts.GetValueOrDefault(order.ShippingMethod);
@@ -340,6 +354,14 @@ public sealed class ApiOrdersController : ControllerBase
             Subtotal = calculatedSubtotal,
             ShippingCost = calculatedShipping,
             Total = total ?? order.Total,
+            PaymentStatus = paymentAttempt?.Status ?? order.PaymentAttempts
+                .OrderByDescending(item => item.AttemptNumber)
+                .Select(item => item.Status)
+                .FirstOrDefault(),
+            CheckoutUrl = paymentAttempt?.CheckoutUrl ?? order.PaymentAttempts
+                .OrderByDescending(item => item.AttemptNumber)
+                .Select(item => item.CheckoutUrl)
+                .FirstOrDefault(),
             Items = order.Items.Select(item => new ApiOrderItemResponse
             {
                 ProductId = item.ProductId,
@@ -412,6 +434,8 @@ public sealed class ApiOrderResponse
     public decimal Subtotal { get; init; }
     public decimal ShippingCost { get; init; }
     public decimal Total { get; init; }
+    public string? PaymentStatus { get; init; }
+    public string? CheckoutUrl { get; init; }
     public IReadOnlyList<ApiOrderItemResponse> Items { get; init; } = [];
 }
 

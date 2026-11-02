@@ -7,6 +7,7 @@ import { resolveMediaUrl } from "@/lib/api";
 import type { CartResponse } from "@/lib/cart-types";
 import { emptyCart } from "@/lib/cart-types";
 import { getOrderQuote, OrderApiError, OrderSubmissionUncertainError, prepareOrder } from "@/lib/order-client";
+import { fetchAuthorizedOrders } from "@/lib/order-tracking-client";
 import type { CreateOrderRequest, OrderQuoteResponse, OrderResponse, ShippingMethod } from "@/lib/order-types";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -100,6 +101,15 @@ export function CheckoutView() {
   }, [cartLoadAttempt]);
 
   useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get("orderId");
+    if (!orderId) return;
+    fetchAuthorizedOrders().then((orders) => {
+      const returnedOrder = orders.find((candidate) => String(candidate.id) === orderId);
+      if (returnedOrder) setOrder(returnedOrder);
+    }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (loading || cartError || cart.items.length === 0) return;
 
     getOrderQuote(form.shippingMethod)
@@ -157,9 +167,11 @@ export function CheckoutView() {
       };
 
       const created = await prepareOrder(request, csrfToken, key);
+      if (!created.checkoutUrl) throw new Error("O Mercado Pago não retornou uma URL de checkout.");
       sessionStorage.setItem(checkoutStorageKey, JSON.stringify({ key, order: created }));
       setOrder(created);
       setCart(emptyCart);
+      window.location.assign(created.checkoutUrl);
     } catch (caughtError) {
       setOrderError(formatOrderError(caughtError));
     } finally {
@@ -189,8 +201,8 @@ export function CheckoutView() {
       {!loading && order && (
         <div className="checkout-confirmation" role="status">
           <p className="eyebrow">Pedido #{order.id}</p>
-          <h2>Seu pedido está pendente.</h2>
-          <p>Recebemos os itens e reservamos o estoque. Este pedido ainda não representa pagamento confirmado.</p>
+          <h2>{order.paymentStatus === "Aprovado" ? "Pagamento recebido" : "Pedido preparado"}</h2>
+          <p>{order.paymentStatus === "Aprovado" ? "Pagamento confirmado pelo Mercado Pago." : "Seu pedido está aguardando a confirmação do Mercado Pago."}</p>
           <div className="checkout-confirmation__total"><span>Total do pedido</span><strong>{currency.format(order.total)}</strong></div>
           <Link className="cart-button cart-button--link" href={`/pedidos/${order.id}`}>Acompanhar pedido</Link>
           <Link className="hero-cta" href="/">Voltar à coleção <span>↗</span></Link>
@@ -217,7 +229,7 @@ export function CheckoutView() {
               <label>Estado<input required={requiresAddress} maxLength={2} value={form.state} onChange={(event) => updateField("state", event.target.value.toUpperCase())} autoComplete="address-level1" /></label>
             </div>
             <p className="checkout-hint">O frete e o total definitivo são calculados e validados pelo servidor. O pedido ficará pendente; nenhum pagamento será iniciado.</p>
-            <button className="cart-button" type="submit" disabled={submitting || !quote}>{submitting ? "Preparando pedido..." : "Finalizar pedido"}</button>
+            <button className="cart-button" type="submit" disabled={submitting || !quote}>{submitting ? "Abrindo Mercado Pago..." : "Pagar com Mercado Pago"}</button>
             <p className="cart-note">{submitting ? "Não feche esta página. O mesmo envio será reutilizado se for necessário tentar novamente." : "Você poderá revisar o status do pedido após o envio."}</p>
           </form>
           <aside className="checkout-summary">
