@@ -1,4 +1,4 @@
-const backendUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5268").replace(/\/$/, "");
+const backendUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5278").replace(/\/$/, "");
 
 export async function proxyCartRequest(request: Request, path: string) {
   const headers = new Headers({ Accept: "application/json" });

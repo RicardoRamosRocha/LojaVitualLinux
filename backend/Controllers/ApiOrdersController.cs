@@ -27,17 +27,23 @@ public sealed class ApiOrdersController : ControllerBase
     private readonly IAntiforgery _antiforgery;
     private readonly IOrderAccessCredentialService _orderAccess;
     private readonly OrderPaymentService _payments;
+    private readonly IOrderRecoveryService _recovery;
+    private readonly OrderRecoveryRateLimiter _recoveryRateLimiter;
 
     public ApiOrdersController(
         AppDbContext context,
         IAntiforgery antiforgery,
         IOrderAccessCredentialService orderAccess,
-        OrderPaymentService payments)
+        OrderPaymentService payments,
+        IOrderRecoveryService recovery,
+        OrderRecoveryRateLimiter recoveryRateLimiter)
     {
         _context = context;
         _antiforgery = antiforgery;
         _orderAccess = orderAccess;
         _payments = payments;
+        _recovery = recovery;
+        _recoveryRateLimiter = recoveryRateLimiter;
     }
 
     [HttpGet("authorized")]
@@ -79,6 +85,80 @@ public sealed class ApiOrdersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("recovery/request")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("order-tracking")]
+    public async Task<IActionResult> RequestOrderRecovery(
+        OrderRecoveryRequest request,
+        CancellationToken cancellationToken)
+    {
+        var identifier = $"{request.OrderId}:{request.Email.Trim().ToLowerInvariant()}";
+        var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (_recoveryRateLimiter.TryAcquire(clientAddress, identifier))
+        {
+            await _recovery.RequestAsync(request.OrderId, request.Email, cancellationToken);
+        }
+
+        return Accepted(new OrderRecoveryResponse());
+    }
+
+    [HttpPost("recovery/confirm")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("order-tracking")]
+    public async Task<IActionResult> ConfirmOrderRecovery(
+        OrderRecoveryConfirmation request,
+        CancellationToken cancellationToken)
+    {
+        var identifier = $"{request.OrderId}:{request.Token}";
+        var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (!_recoveryRateLimiter.TryAcquire(clientAddress, identifier))
+        {
+            return Unauthorized(new { code = "recovery_invalid", message = "Não foi possível confirmar o código." });
+        }
+
+        var result = await _recovery.ConfirmAsync(
+            request.OrderId,
+            request.Token,
+            Request,
+            Response,
+            cancellationToken);
+        return result.Confirmed
+            ? NoContent()
+            : Unauthorized(new { code = "recovery_invalid", message = "Não foi possível confirmar o código." });
+    }
+
+    [HttpPost("{id:int}/payment")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("order-tracking")]
+    public async Task<ActionResult<ApiOrderResponse>> ResumePayment(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var access = await _orderAccess.ResolveAsync(Request, cancellationToken);
+        if (!access.Any(item => item.Credential.OrderId == id))
+        {
+            return Unauthorized();
+        }
+
+        var order = await _context.Orders
+            .Include(item => item.Items)
+            .ThenInclude(item => item.Product)
+            .Include(item => item.StockReservations)
+            .Include(item => item.PaymentAttempts)
+            .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (order is null) return NotFound();
+
+        try
+        {
+            var paymentAttempt = await _payments.EnsurePreferenceAsync(order, cancellationToken);
+            return Ok(ToResponse(order, paymentAttempt: paymentAttempt));
+        }
+        catch (PaymentEligibilityException exception)
+        {
+            return Conflict(ApiOrderError.PaymentUnavailable(exception.Code, exception.Message));
+        }
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<ActionResult<ApiOrderResponse>> CreateOrder(
@@ -113,8 +193,15 @@ public sealed class ApiOrdersController : ControllerBase
             }
 
             _orderAccess.WriteCookie(Response, retryAccess);
-            var retryPayment = await _payments.EnsurePreferenceAsync(previousOrder, cancellationToken);
-            return Ok(ToResponse(previousOrder, paymentAttempt: retryPayment));
+            try
+            {
+                var retryPayment = await _payments.EnsurePreferenceAsync(previousOrder, cancellationToken);
+                return Ok(ToResponse(previousOrder, paymentAttempt: retryPayment));
+            }
+            catch (PaymentEligibilityException exception)
+            {
+                return Conflict(ApiOrderError.PaymentUnavailable(exception.Code, exception.Message));
+            }
         }
 
         var cart = ReadCart();
@@ -241,8 +328,15 @@ public sealed class ApiOrdersController : ControllerBase
                 }
 
                 _orderAccess.WriteCookie(Response, retryAccess);
-                var retryPayment = await _payments.EnsurePreferenceAsync(previousOrder, cancellationToken);
-                return Ok(ToResponse(previousOrder, paymentAttempt: retryPayment));
+                try
+                {
+                    var retryPayment = await _payments.EnsurePreferenceAsync(previousOrder, cancellationToken);
+                    return Ok(ToResponse(previousOrder, paymentAttempt: retryPayment));
+                }
+                catch (PaymentEligibilityException exception)
+                {
+                    return Conflict(ApiOrderError.PaymentUnavailable(exception.Code, exception.Message));
+                }
             }
 
             return Conflict(ApiOrderError.IdempotencyConflict());
@@ -250,8 +344,15 @@ public sealed class ApiOrdersController : ControllerBase
 
         HttpContext.Session.Remove(CartSessionKey);
 
-        var paymentAttempt = await _payments.EnsurePreferenceAsync(order, cancellationToken);
-        return Created($"/api/orders/{order.Id}", ToResponse(order, subtotal, shippingCost, total, paymentAttempt));
+        try
+        {
+            var paymentAttempt = await _payments.EnsurePreferenceAsync(order, cancellationToken);
+            return Created($"/api/orders/{order.Id}", ToResponse(order, subtotal, shippingCost, total, paymentAttempt));
+        }
+        catch (PaymentEligibilityException exception)
+        {
+            return Conflict(ApiOrderError.PaymentUnavailable(exception.Code, exception.Message));
+        }
     }
 
     [HttpGet("quote")]
@@ -425,6 +526,29 @@ public sealed class CreateApiOrderRequest
     public string ShippingMethod { get; set; } = string.Empty;
 }
 
+public sealed class OrderRecoveryRequest
+{
+    [Range(1, int.MaxValue)]
+    public int OrderId { get; set; }
+
+    [Required, EmailAddress, StringLength(180)]
+    public string Email { get; set; } = string.Empty;
+}
+
+public sealed class OrderRecoveryConfirmation
+{
+    [Range(1, int.MaxValue)]
+    public int OrderId { get; set; }
+
+    [Required, StringLength(128, MinimumLength = 20)]
+    public string Token { get; set; } = string.Empty;
+}
+
+public sealed class OrderRecoveryResponse
+{
+    public string Message { get; init; } = "Se os dados corresponderem, enviaremos um código de recuperação.";
+}
+
 public sealed class ApiOrderResponse
 {
     public int Id { get; init; }
@@ -496,6 +620,12 @@ public sealed class ApiOrderError
     {
         Code = "idempotency_conflict",
         Message = "A chave de idempotência já foi usada com dados diferentes."
+    };
+
+    public static ApiOrderError PaymentUnavailable(string code, string message) => new()
+    {
+        Code = code,
+        Message = message
     };
 }
 

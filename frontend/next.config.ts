@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  allowedDevOrigins: ["berlin-capture-action-dictionary.trycloudflare.com"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

@@ -1,4 +1,4 @@
-const backendUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5268").replace(/\/$/, "");
+const backendUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5278").replace(/\/$/, "");
 const allowedMediaPath = /^(images|videos)\/products\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:jpe?g|png|webp|gif|svg|mp4|webm)$/i;
 
 type MediaRouteContext = {

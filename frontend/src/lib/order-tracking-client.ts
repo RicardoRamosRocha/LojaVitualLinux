@@ -31,10 +31,34 @@ export async function fetchAuthorizedOrders(): Promise<OrderResponse[]> {
     throw new OrderTrackingApiError(0);
   }
 
-  if (response.status === 401) return [];
+  if (response.status === 401) throw new OrderTrackingApiError(401);
   if (!response.ok) throw new OrderTrackingApiError(response.status);
 
   const payload: unknown = await response.json();
   if (!Array.isArray(payload)) throw new OrderTrackingApiError(502);
   return payload.filter(isOrderResponse);
+}
+
+async function recoveryRequest(path: string, body: unknown, csrfToken: string): Promise<Response> {
+  return fetch(path, {
+    method: "POST",
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      RequestVerificationToken: csrfToken,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function requestOrderRecovery(orderId: number, email: string, csrfToken: string) {
+  const response = await recoveryRequest("/api/orders/recovery/request", { orderId, email }, csrfToken);
+  if (!response.ok) throw new OrderTrackingApiError(response.status);
+}
+
+export async function confirmOrderRecovery(orderId: number, token: string, csrfToken: string) {
+  const response = await recoveryRequest("/api/orders/recovery/confirm", { orderId, token }, csrfToken);
+  if (!response.ok) throw new OrderTrackingApiError(response.status);
 }

@@ -118,6 +118,9 @@ h2 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(38px, 5vw,
 .cart-message h2 { font-size: 34px; margin-bottom: 12px; }
 .cart-message p { color: var(--muted); font-size: 14px; }
 .cart-message--error { color: #9b8177; }
+.cart-message form { display: grid; gap: 10px; margin: 25px auto 0; max-width: 430px; text-align: left; }
+.cart-message form input { background: var(--paper); border: 1px solid var(--line); color: var(--ink); font: inherit; min-height: 48px; padding: 13px; width: 100%; }
+.cart-message form input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(183,140,85,.15); outline: 0; }
 .cart-feedback, .cart-error { font-size: 12px; margin: 12px 0 0; text-align: center; }
 .cart-feedback { color: #66806a; }
 .cart-feedback a { border-bottom: 1px solid currentColor; }

@@ -260,6 +260,41 @@ namespace LojaVirtual.Data.Migrations
                     b.ToTable("OrderAccessCredentials");
                 });
 
+            modelBuilder.Entity("LojaVirtual.Models.OrderAccessRecoveryToken", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId", "ExpiresAtUtc", "UsedAtUtc");
+
+                    b.ToTable("OrderAccessRecoveryTokens");
+                });
+
             modelBuilder.Entity("LojaVirtual.Models.OrderItem", b =>
                 {
                     b.Property<int>("Id")
@@ -620,6 +655,17 @@ namespace LojaVirtual.Data.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("LojaVirtual.Models.OrderAccessRecoveryToken", b =>
+                {
+                    b.HasOne("LojaVirtual.Models.Order", "Order")
+                        .WithMany("AccessRecoveryTokens")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("LojaVirtual.Models.OrderItem", b =>
                 {
                     b.HasOne("LojaVirtual.Models.Order", "Order")
@@ -748,6 +794,8 @@ namespace LojaVirtual.Data.Migrations
             modelBuilder.Entity("LojaVirtual.Models.Order", b =>
                 {
                     b.Navigation("AccessCredentials");
+
+                    b.Navigation("AccessRecoveryTokens");
 
                     b.Navigation("Items");
 

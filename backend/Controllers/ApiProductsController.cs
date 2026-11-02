@@ -20,6 +20,7 @@ public class ApiProductsController : ControllerBase
     {
         var products = await _context.Products
             .AsNoTracking()
+            .AsSplitQuery()
             .Where(product => product.IsActive)
             .OrderBy(product => product.Id)
             .Select(product => new ProductDto
@@ -61,6 +62,7 @@ public class ApiProductsController : ControllerBase
     {
         var product = await _context.Products
             .AsNoTracking()
+            .AsSplitQuery()
             .Where(product => product.IsActive && product.Id == id)
             .Select(product => new ProductDto
             {

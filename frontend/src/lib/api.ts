@@ -1,6 +1,6 @@
 import type { Product, ProductResult, ProductsResult } from "@/lib/types";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5268").replace(
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5278").replace(
   /\/$/,
   "",
 );

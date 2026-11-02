@@ -84,3 +84,30 @@ export async function prepareOrder(request: CreateOrderRequest, csrfToken: strin
     window.clearTimeout(timeout);
   }
 }
+
+export async function resumeOrderPayment(orderId: number, csrfToken: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), orderRequestTimeoutMs);
+
+  try {
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/payment`, {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        RequestVerificationToken: csrfToken,
+      },
+      signal: controller.signal,
+    });
+
+    return await parseOrderResponse(response);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("A retomada do pagamento demorou para responder.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}

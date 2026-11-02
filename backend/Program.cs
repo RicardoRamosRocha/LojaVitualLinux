@@ -11,6 +11,21 @@ using LojaVirtual.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// O Render fornece PORT em runtime. Localmente, sem PORT, o Kestrel mantém
+// as URLs padrão do perfil de desenvolvimento ou da configuração do host.
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+var hasAspNetCoreUrlOverride = !string.IsNullOrWhiteSpace(
+        Environment.GetEnvironmentVariable("ASPNETCORE_URLS"))
+    || !string.IsNullOrWhiteSpace(
+        Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS"));
+
+if (!hasAspNetCoreUrlOverride
+    && int.TryParse(renderPort, out var parsedRenderPort)
+    && parsedRenderPort is > 0 and <= 65535)
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{parsedRenderPort}");
+}
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 /*builder.Services.AddDbContext<AppDbContext>(options =>
@@ -71,9 +86,17 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient<
     IMercadoPagoService,
     MercadoPagoService>();
+builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
+builder.Services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(client =>
+{
+    client.BaseAddress = new Uri("https://api.resend.com/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddScoped<AdminProvisioningService>();
 builder.Services.AddScoped<IOrderAccessCredentialService, OrderAccessCredentialService>();
 builder.Services.AddScoped<OrderPaymentService>();
+builder.Services.AddScoped<IOrderRecoveryService, OrderRecoveryService>();
+builder.Services.AddSingleton<OrderRecoveryRateLimiter>();
 
 builder.Services.AddRateLimiter(options =>
 {

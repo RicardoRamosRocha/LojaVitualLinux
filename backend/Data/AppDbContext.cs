@@ -19,6 +19,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderStockReservation> StockReservations { get; set; }
     public DbSet<OrderAccessCredential> OrderAccessCredentials { get; set; }
+    public DbSet<OrderAccessRecoveryToken> OrderAccessRecoveryTokens { get; set; }
     public DbSet<OrderPaymentAttempt> OrderPaymentAttempts { get; set; }
 
     public DbSet<Customer> Customers { get; set; }
@@ -85,6 +86,24 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
         modelBuilder.Entity<OrderAccessCredential>()
                 .HasIndex(credential => new { credential.OrderId, credential.RevokedAt, credential.ExpiresAt });
+
+        modelBuilder.Entity<OrderAccessRecoveryToken>()
+            .HasOne(token => token.Order)
+            .WithMany(order => order.AccessRecoveryTokens)
+            .HasForeignKey(token => token.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrderAccessRecoveryToken>()
+            .Property(token => token.TokenHash)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        modelBuilder.Entity<OrderAccessRecoveryToken>()
+            .HasIndex(token => token.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<OrderAccessRecoveryToken>()
+            .HasIndex(token => new { token.OrderId, token.ExpiresAtUtc, token.UsedAtUtc });
 
         modelBuilder.Entity<OrderPaymentAttempt>()
             .HasOne(attempt => attempt.Order)

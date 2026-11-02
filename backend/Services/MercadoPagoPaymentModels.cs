@@ -14,6 +14,7 @@ public sealed record MercadoPagoPaymentResult(
 
 public static class PaymentStatusWorkflow
 {
+    public const string CreatingPreference = "CriandoPreferencia";
     public const string AwaitingPayment = "AguardandoPagamento";
     public const string Processing = "EmProcessamento";
     public const string Approved = "Aprovado";

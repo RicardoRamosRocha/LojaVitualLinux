@@ -1,10 +1,12 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using LojaVirtual.Models;
 using LojaVirtual.Services;
+using Microsoft.Extensions.Logging;
 
 namespace LojaVirtual.Web.Services;
 
@@ -13,20 +15,38 @@ public sealed class MercadoPagoService : IMercadoPagoService
     private const string ApiBaseUrl = "https://api.mercadopago.com";
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<MercadoPagoService>? _logger;
 
-    public MercadoPagoService(HttpClient httpClient, IConfiguration configuration)
+    public MercadoPagoService(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<MercadoPagoService>? logger = null)
     {
         _httpClient = httpClient;
         _configuration = configuration;
+        _logger = logger;
     }
 
-    public async Task<MercadoPagoPreferenceResult> CreatePreferenceAsync(Order order, CancellationToken cancellationToken = default)
+    public async Task<MercadoPagoPreferenceResult> CreatePreferenceAsync(
+        Order order,
+        string? idempotencyKey,
+        CancellationToken cancellationToken = default)
     {
         var accessToken = Required("MercadoPago:AccessToken");
-        var storefrontUrl = RequiredUrl("Storefront:BaseUrl");
-        var notificationUrl = RequiredUrl("MercadoPago:WebhookUrl", requireHttps: true);
+        var storefrontUrl = RequiredPublicHttpsUrl("Storefront:BaseUrl");
+        var notificationUrl = RequiredPublicHttpsUrl("MercadoPago:WebhookUrl");
         var expirationMinutes = _configuration.GetValue("MercadoPago:PreferenceExpirationMinutes", 30);
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(expirationMinutes);
+        var startsAt = DateTimeOffset.UtcNow;
+        var attemptExpiration = order.PaymentAttempts
+            .FirstOrDefault(attempt => string.Equals(attempt.IdempotencyKey, idempotencyKey, StringComparison.Ordinal))
+            ?.ExpiresAtUtc;
+        var expiresAt = attemptExpiration is { } persistedExpiration
+            ? new DateTimeOffset(DateTime.SpecifyKind(persistedExpiration, DateTimeKind.Utc))
+            : startsAt.AddMinutes(expirationMinutes);
+        if (expiresAt <= startsAt)
+        {
+            throw new MercadoPagoException("A preferência não pode ser criada após a expiração da reserva de estoque.");
+        }
 
         var items = order.Items.Select(item => new
         {
@@ -63,7 +83,9 @@ public sealed class MercadoPagoService : IMercadoPagoService
                 pending = $"{storefrontUrl}/checkout?orderId={order.Id}&returnStatus=pending"
             },
             auto_return = "approved",
-            expiration_date_to = expiresAt.ToString("O", CultureInfo.InvariantCulture)
+            expires = true,
+            expiration_date_from = FormatPreferenceDate(startsAt),
+            expiration_date_to = FormatPreferenceDate(expiresAt)
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{ApiBaseUrl}/checkout/preferences")
@@ -71,12 +93,37 @@ public sealed class MercadoPagoService : IMercadoPagoService
             Content = JsonContent.Create(body)
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        request.Headers.Add("X-Idempotency-Key", $"angel-order-{order.Id}-{order.PaymentAttempts.Count + 1}");
+        request.Headers.Add(
+            "X-Idempotency-Key",
+            idempotencyKey ?? $"angel-order-{order.Id}-attempt-{order.PaymentAttempts.Count + 1}");
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new MercadoPagoException($"Mercado Pago rejeitou a preferência ({(int)response.StatusCode}).");
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var details = ParseApiError(responseBody);
+            var requestId = response.Headers.TryGetValues("x-request-id", out var requestIds)
+                ? requestIds.FirstOrDefault()
+                : null;
+            _logger?.LogWarning(
+                "Mercado Pago rejeitou preferência. StatusCode={StatusCode}; RequestId={RequestId}; " +
+                "ExpiresValue={ExpiresValue}; ExpiresJsonType={ExpiresJsonType}; " +
+                "ExpirationDateFrom={ExpirationDateFrom}; ExpirationDateFromJsonType={ExpirationDateFromJsonType}; " +
+                "ExpirationDateTo={ExpirationDateTo}; ExpirationDateToJsonType={ExpirationDateToJsonType}; " +
+                "ErrorCode={ErrorCode}; ErrorMessage={ErrorMessage}; Causes={Causes}",
+                (int)response.StatusCode,
+                SafeLogValue(requestId),
+                true,
+                "Boolean",
+                FormatPreferenceDate(startsAt),
+                "String",
+                FormatPreferenceDate(expiresAt),
+                "String",
+                details.Code,
+                details.Message,
+                details.Causes.Count == 0 ? null : string.Join(" | ", details.Causes));
+            throw new MercadoPagoException(
+                $"Mercado Pago rejeitou a preferência ({(int)response.StatusCode}): {details.ToMessage()}");
         }
 
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
@@ -91,8 +138,8 @@ public sealed class MercadoPagoService : IMercadoPagoService
         return new MercadoPagoPreferenceResult(preferenceId, initPoint);
     }
 
-    public async Task<string> CriarPreferenciaAsync(Order order) =>
-        (await CreatePreferenceAsync(order)).InitPoint;
+    public async Task<string> CriarPreferenciaAsync(Order order, string? idempotencyKey = null) =>
+        (await CreatePreferenceAsync(order, idempotencyKey)).InitPoint;
 
     public async Task<MercadoPagoPaymentResult?> GetPaymentAsync(string paymentId, CancellationToken cancellationToken = default)
     {
@@ -149,11 +196,94 @@ public sealed class MercadoPagoService : IMercadoPagoService
         return value;
     }
 
+    private string RequiredPublicHttpsUrl(string key)
+    {
+        var value = RequiredUrl(key);
+        var uri = new Uri(value);
+        if (uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            (IPAddress.TryParse(uri.Host, out var address) && IPAddress.IsLoopback(address)))
+        {
+            throw new MercadoPagoException(
+                $"Configuração inválida: {key} deve usar uma URL HTTPS pública; localhost não é aceito pelo Mercado Pago.");
+        }
+
+        if (uri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new MercadoPagoException($"Configuração inválida: {key}.");
+        }
+
+        return value;
+    }
+
+    private static MercadoPagoApiError ParseApiError(string responseBody)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(responseBody);
+            var root = document.RootElement;
+            var code = GetString(root, "error");
+            var message = GetString(root, "message");
+            var causes = root.TryGetProperty("cause", out var causeElement) &&
+                         causeElement.ValueKind == JsonValueKind.Array
+                ? causeElement.EnumerateArray()
+                    .Select(cause =>
+                    {
+                        var causeCode = GetString(cause, "code");
+                        var description = GetString(cause, "description");
+                        return string.Join(": ", new[] { causeCode, description }
+                            .Where(value => !string.IsNullOrWhiteSpace(value)));
+                    })
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Take(3)
+                    .ToArray()
+                : [];
+
+            return new MercadoPagoApiError(
+                SafeLogValue(code),
+                SafeLogValue(message),
+                causes.Select(SafeLogValue).Where(value => value is not null).Cast<string>().ToArray());
+        }
+        catch (JsonException)
+        {
+            return new MercadoPagoApiError(null, "a API retornou uma resposta de erro não estruturada", []);
+        }
+    }
+
+    private static string? SafeLogValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var normalized = value.Replace('\r', ' ').Replace('\n', ' ');
+        return normalized[..Math.Min(normalized.Length, 400)];
+    }
+
     private static string? GetString(JsonElement root, string name) =>
         root.TryGetProperty(name, out var property) && property.ValueKind != JsonValueKind.Null ? property.ToString() : null;
 
+    private static string FormatPreferenceDate(DateTimeOffset value) =>
+        value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
+
     private static DateTimeOffset? GetDate(JsonElement root, string name) =>
         DateTimeOffset.TryParse(GetString(root, name), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var value) ? value : null;
+
+    private sealed record MercadoPagoApiError(
+        string? Code,
+        string? Message,
+        IReadOnlyList<string> Causes)
+    {
+        public string ToMessage()
+        {
+            var parts = new[]
+            {
+                Code,
+                Message,
+                Causes.Count == 0 ? null : string.Join(" | ", Causes)
+            }.Where(value => !string.IsNullOrWhiteSpace(value));
+            var result = string.Join("; ", parts);
+            return string.IsNullOrWhiteSpace(result)
+                ? "a API não informou detalhes"
+                : result[..Math.Min(result.Length, 800)];
+        }
+    }
 }
 
 public sealed class MercadoPagoException : Exception

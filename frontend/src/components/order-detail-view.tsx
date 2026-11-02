@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { OrderResponse } from "@/lib/order-types";
 import { fetchAuthorizedOrders, OrderTrackingApiError } from "@/lib/order-tracking-client";
+import { fetchCart } from "@/lib/cart-client";
+import { resumeOrderPayment } from "@/lib/order-client";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -17,6 +19,26 @@ export function OrderDetailView({ reference }: { reference: string }) {
   const [order, setOrder] = useState<OrderResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [resumingPayment, setResumingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  async function handleResumePayment() {
+    if (!order || resumingPayment) return;
+    setResumingPayment(true);
+    setPaymentError(null);
+    try {
+      const { csrfToken } = await fetchCart();
+      if (!csrfToken) throw new Error("Não foi possível validar sua sessão. Recarregue a página e tente novamente.");
+      const resumed = await resumeOrderPayment(order.id, csrfToken);
+      setOrder(resumed);
+      if (!resumed.checkoutUrl) throw new Error("O Mercado Pago não retornou uma URL de checkout.");
+      window.location.assign(resumed.checkoutUrl);
+    } catch (caughtError) {
+      setPaymentError(caughtError instanceof Error ? caughtError.message : "Não foi possível retomar o pagamento.");
+    } finally {
+      setResumingPayment(false);
+    }
+  }
 
   const loadOrder = useCallback(() => {
     setLoading(true);
@@ -51,6 +73,7 @@ export function OrderDetailView({ reference }: { reference: string }) {
       <div className="orders-heading"><div><p className="eyebrow">Pedido #{order.id}</p><h1>Acompanhamento</h1></div><Link className="back-link" href="/pedidos">← Meus pedidos</Link></div>
       <div className="order-detail-layout">
         <p className="order-note">Status financeiro: {order.paymentStatus ?? "Aguardando confirmação"}</p>
+        {order.status === "Pendente" && !order.checkoutUrl && <div className="order-payment-action"><button className="cart-button" type="button" onClick={handleResumePayment} disabled={resumingPayment}>{resumingPayment ? "Validando pagamento..." : "Retomar pagamento"}</button>{paymentError && <p className="order-note" role="alert">{paymentError}</p>}</div>}
         <div className="order-detail-card"><div className="order-detail-card__header"><div><p className="eyebrow">Resumo</p><h2>Pedido #{order.id}</h2></div><strong>{order.status}</strong></div><div className="order-items">{order.items.map((item) => <div className="order-item" key={item.productId}><span>{item.quantity} × Produto #{item.productId}</span><strong>{currency.format(item.subtotal)}</strong></div>)}</div><div className="order-total-line"><span>Subtotal</span><strong>{currency.format(order.subtotal)}</strong></div><div className="order-total-line"><span>Frete</span><strong>{currency.format(order.shippingCost)}</strong></div><div className="order-total-line order-total-line--final"><span>Total</span><strong>{currency.format(order.total)}</strong></div></div>
         <aside className="order-timeline" aria-label="Linha do tempo do pedido"><p className="eyebrow">Acompanhamento</p><div className="order-timeline__step is-current"><span aria-hidden="true" /><div><strong>Status atual: {order.status}</strong><small>Pedido registrado em {formatDate(order.createdAt)}.</small></div></div><div className="order-timeline__step"><span aria-hidden="true" /><div><strong>Próximas atualizações</strong><small>Serão exibidas aqui quando disponibilizadas pela API.</small></div></div><p className="order-note">Este pedido está pendente e não representa pagamento confirmado.</p></aside>
       </div>

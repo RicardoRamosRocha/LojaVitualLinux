@@ -9,6 +9,12 @@ appsettings.Development.json
 *.suo
 
 node_modules/
+.next/
+*.tsbuildinfo
+
+# Configurações locais e secrets de qualquer projeto.
+**/.env.local
+**/.env.*.local
 
 wwwroot/uploads/
 
