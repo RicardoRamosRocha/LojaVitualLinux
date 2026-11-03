@@ -1,11 +1,10 @@
 import type { Product, ProductResult, ProductsResult } from "@/lib/types";
+export { resolveMediaUrl } from "@/lib/media-url";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5278").replace(
   /\/$/,
   "",
 );
-
-const mediaPathPattern = /^(?:images|videos)\/products\/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:jpe?g|png|webp|gif|svg|mp4|webm)$/i;
 
 function isProduct(value: unknown): value is Product {
   if (!value || typeof value !== "object") return false;
@@ -17,13 +16,6 @@ function isProduct(value: unknown): value is Product {
     typeof product.price === "number" &&
     typeof product.stock === "number"
   );
-}
-
-export function resolveMediaUrl(path: string | null | undefined) {
-  if (!path) return null;
-
-  const normalizedPath = path.replace(/^\/+/, "");
-  return mediaPathPattern.test(normalizedPath) ? `/media/${normalizedPath}` : null;
 }
 
 export async function getProducts(): Promise<ProductsResult> {

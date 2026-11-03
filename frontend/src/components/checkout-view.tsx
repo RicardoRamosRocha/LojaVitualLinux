@@ -12,6 +12,7 @@ import type { CreateOrderRequest, OrderQuoteResponse, OrderResponse, ShippingMet
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const checkoutStorageKey = "angel-checkout-order-v1";
+const maxBackendAddressLength = 240;
 
 type CheckoutForm = {
   customerName: string;
@@ -161,9 +162,14 @@ export function CheckoutView() {
         form.complement.trim(), form.neighborhood.trim(),
         `${form.city.trim()} - ${form.state.trim().toUpperCase()}`,
       ].filter(Boolean) : [];
+      const formattedAddress = addressParts.join(" | ");
+      if (formattedAddress.length > maxBackendAddressLength) {
+        setOrderError("O endereço completo deve ter no máximo 240 caracteres. Reduza os detalhes do endereço e tente novamente.");
+        return;
+      }
       const request: CreateOrderRequest = {
         customerName: form.customerName.trim(), email: form.email.trim(), phone: form.phone.trim(),
-        zipCode: form.zipCode.trim(), address: addressParts.join(" | "), shippingMethod: form.shippingMethod,
+        zipCode: form.zipCode.trim(), address: formattedAddress, shippingMethod: form.shippingMethod,
       };
 
       const created = await prepareOrder(request, csrfToken, key);
