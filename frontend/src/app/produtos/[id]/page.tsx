@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getProduct, resolveMediaUrl } from "@/lib/api";
 import type { Product } from "@/lib/types";
 import { AddToCartButton } from "@/components/add-to-cart-button";
+import { ProductGallery } from "@/components/product-gallery";
 
 type ProductPageProps = {
   params: Promise<{ id: string }>;
@@ -85,16 +86,7 @@ async function ProductDetailsContent({ params }: ProductPageProps) {
         <Link className="back-link" href="/#colecao">← Voltar à coleção</Link>
 
         <div className="product-detail">
-          <div className="product-gallery">
-            {images.length > 0 ? (
-              images.map((image, index) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="product-gallery__image" key={image} src={image} alt={`${product.name} — imagem ${index + 1}`} />
-              ))
-            ) : (
-              <div className="product-gallery__placeholder">Angel</div>
-            )}
-          </div>
+          <ProductGallery images={images} productName={product.name} />
 
           <div className="product-detail__content">
             <p className="eyebrow">{product.category?.name ?? "Coleção Angel"}</p>
