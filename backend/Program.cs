@@ -82,6 +82,14 @@ builder.Services.AddAuthorization(options =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.Configure<CloudinaryOptions>(options =>
+{
+    options.CloudName = builder.Configuration["Cloudinary:CloudName"] ?? string.Empty;
+    options.ApiKey = builder.Configuration["Cloudinary:ApiKey"] ?? string.Empty;
+    options.ApiSecret = builder.Configuration["Cloudinary:ApiSecret"] ?? string.Empty;
+});
+builder.Services.AddScoped<IImageStorage, CloudinaryImageStorage>();
+builder.Services.AddScoped<ProductImageService>();
 
 var allowedCorsOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")

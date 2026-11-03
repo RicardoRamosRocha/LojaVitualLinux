@@ -17,6 +17,14 @@ Variáveis necessárias:
 - `MercadoPago__WebhookSecret`: segredo configurado para validar o webhook.
 - `MercadoPago__WebhookUrl`: URL HTTPS pública do endpoint `/api/payments/mercadopago/webhook`.
 - `Storefront__BaseUrl`: URL HTTPS pública do frontend.
+- `Cloudinary__CloudName`: `vnrcuol7`.
+- `Cloudinary__ApiKey`: chave da API do Cloudinary.
+- `Cloudinary__ApiSecret`: segredo da API do Cloudinary.
+
+As três variáveis do Cloudinary devem ser configuradas somente no Environment do
+Render. Imagens novas são enviadas para o Cloudinary; vídeos continuam no
+armazenamento local da aplicação. Imagens legadas em `/images/products/` não são
+migradas nem removidas automaticamente.
 
 Para permitir chamadas diretas do frontend ao backend, configure a origem HTTPS
 da Vercel no índice `Cors__AllowedOrigins__0`. A arquitetura atual usa proxies
@@ -75,5 +83,11 @@ de revisar o banco-alvo. Esta documentação não autoriza nem executa migration
 - Confirmar `GET /api/products` usando a URL pública do backend.
 - Confirmar que o frontend usa `NEXT_PUBLIC_API_URL` do backend de homologação.
 - Confirmar URLs HTTPS públicas para storefront e webhook do Mercado Pago.
+- Criar/editar um produto com uma imagem JPG/PNG/WEBP/GIF e confirmar que a
+  URL HTTPS do Cloudinary aparece em `GET /api/products`.
+- Remover uma mídia nova pelo painel e confirmar que ela deixa de aparecer no
+  produto; imagens legadas devem continuar acessíveis e não devem ser apagadas.
+- Confirmar que arquivos inválidos ou maiores que 10 MB são rejeitados sem
+  criar registro de mídia.
 - Usar exclusivamente credenciais e pagamentos sandbox.
 - Não depender de arquivos enviados em disco local para persistência de imagens.
