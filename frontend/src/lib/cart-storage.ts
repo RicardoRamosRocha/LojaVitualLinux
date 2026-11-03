@@ -49,3 +49,7 @@ export function writeStoredCart(cart: CartResponse) {
     // localStorage pode estar indisponível por política de privacidade/quota.
   }
 }
+
+export function clearStoredCart() {
+  getStorage()?.removeItem(storageKey);
+}

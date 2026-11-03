@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 // @ts-expect-error Node's native TypeScript runner requires the explicit extension.
-import { readStoredCart, writeStoredCart } from "./cart-storage.ts";
+import { clearStoredCart, readStoredCart, writeStoredCart } from "./cart-storage.ts";
 
 function installStorage() {
   const values = new Map<string, string>();
@@ -35,4 +35,11 @@ test("rejects malformed or unsafe stored quantities", () => {
     { productId: "4", quantity: 1 },
   ]));
   assert.deepEqual(readStoredCart(), [{ productId: 1, quantity: 1 }]);
+});
+
+test("limpa o carrinho local somente quando solicitado", () => {
+  const values = installStorage();
+  values.set("angel-cart-items-v1", JSON.stringify([{ productId: 1, quantity: 1 }]));
+  clearStoredCart();
+  assert.deepEqual(readStoredCart(), []);
 });

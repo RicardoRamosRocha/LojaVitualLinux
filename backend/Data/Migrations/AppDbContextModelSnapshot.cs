@@ -168,6 +168,29 @@ namespace LojaVirtual.Data.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("LojaVirtual.Models.DistributedCacheEntry", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTimeOffset?>("AbsoluteExpiration")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeSpan?>("SlidingExpiration")
+                        .HasColumnType("time(6)");
+
+                    b.Property<byte[]>("Value")
+                        .IsRequired()
+                        .HasColumnType("longblob");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DistributedCacheEntries");
+                });
+
             modelBuilder.Entity("LojaVirtual.Models.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -510,6 +533,25 @@ namespace LojaVirtual.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductMedias");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FriendlyName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Xml")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataProtectionKeys");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>

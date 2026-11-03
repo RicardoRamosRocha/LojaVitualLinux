@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchCart } from "@/lib/cart-client";
+import { clearStoredCart } from "@/lib/cart-storage";
 import { resolveMediaUrl } from "@/lib/api";
 import type { CartResponse } from "@/lib/cart-types";
 import { emptyCart } from "@/lib/cart-types";
@@ -177,6 +178,8 @@ export function CheckoutView() {
       sessionStorage.setItem(checkoutStorageKey, JSON.stringify({ key, order: created }));
       setOrder(created);
       setCart(emptyCart);
+      clearStoredCart();
+      window.dispatchEvent(new Event("angel:cart-updated"));
       window.location.assign(created.checkoutUrl);
     } catch (caughtError) {
       setOrderError(formatOrderError(caughtError));

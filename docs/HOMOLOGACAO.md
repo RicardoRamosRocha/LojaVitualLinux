@@ -17,6 +17,10 @@ Variáveis necessárias:
 - `MercadoPago__WebhookSecret`: segredo configurado para validar o webhook.
 - `MercadoPago__WebhookUrl`: URL HTTPS pública do endpoint `/api/payments/mercadopago/webhook`.
 - `Storefront__BaseUrl`: URL HTTPS pública do frontend.
+- `DataProtection__CertificatePath`: caminho do secret file contendo o certificado
+  privado usado para criptografar as chaves de Data Protection.
+- `DataProtection__CertificatePassword`: senha do certificado, somente no
+  ambiente do Render.
 - `Cloudinary__CloudName`: `vnrcuol7`.
 - `Cloudinary__ApiKey`: chave da API do Cloudinary.
 - `Cloudinary__ApiSecret`: segredo da API do Cloudinary.
@@ -25,6 +29,32 @@ As três variáveis do Cloudinary devem ser configuradas somente no Environment 
 Render. Imagens novas são enviadas para o Cloudinary; vídeos continuam no
 armazenamento local da aplicação. Imagens legadas em `/images/products/` não são
 migradas nem removidas automaticamente.
+
+A aplicação persiste sessões e chaves de Data Protection no MySQL. O certificado
+  de Data Protection deve ser fornecido como Secret File do Render e sua senha
+  como variável protegida. Não armazenar o certificado, a senha ou as chaves no
+  Git. Em Staging e produção, a aplicação não inicia sem esse certificado.
+
+Para preparação local, os arquivos ficam fora do repositório em
+`~/angel-secrets/`:
+
+- `angel-dataprotection.key`
+- `angel-dataprotection.crt`
+- `angel-dataprotection-hml.pfx`
+
+A pasta deve permanecer com permissão `700` e os arquivos com `600`. O arquivo
+`.pfx` deve ser enviado ao Render como Secret File; depois, configure
+`DataProtection__CertificatePath` para o caminho montado pelo Render e informe
+`DataProtection__CertificatePassword` como variável secreta. Não copiar esses
+arquivos para o projeto, para `frontend/public` ou para qualquer diretório
+servido pela aplicação.
+
+O `POST /api/orders` possui limite de oito tentativas por dez minutos por
+combinação do endereço observado pelo servidor e da sessão. O limite retorna
+HTTP 429 e não confia em `X-Forwarded-For` enviado pelo cliente. Como o contador
+é local ao processo, múltiplas instâncias podem ter limites independentes; se o
+Render escalar horizontalmente, deve-se substituir esse limitador por um
+contador distribuído antes de aumentar o tráfego.
 
 Para permitir chamadas diretas do frontend ao backend, configure a origem HTTPS
 da Vercel no índice `Cors__AllowedOrigins__0`. A arquitetura atual usa proxies
@@ -69,6 +99,9 @@ Render por variável de ambiente.
 
 As migrations devem ser aplicadas em uma etapa operacional autorizada, depois
 de revisar o banco-alvo. Esta documentação não autoriza nem executa migrations.
+Para a sessão persistente e as chaves protegidas, aplicar também as migrations
+`AddPersistentSessionAndDataProtection` e `AddPersistentSessionCache` no banco
+correto. A aplicação não executa migrations automaticamente.
 
 ## Checklist antes da publicação
 

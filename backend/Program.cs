@@ -6,8 +6,10 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Globalization;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.RateLimiting;
 using LojaVirtual.Services;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +34,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     options.UseSqlite(
         builder.Configuration.GetConnectionString("DefaultConnection")));*/
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseMySql(
         connectionString,
         ServerVersion.Parse("8.0.0-mysql")
@@ -82,6 +84,22 @@ builder.Services.AddAuthorization(options =>
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+var dataProtectionBuilder = builder.Services.AddDataProtection()
+    .SetApplicationName("AngelAcessorios")
+    .PersistKeysToDbContext<AppDbContext>();
+if (!builder.Environment.IsDevelopment())
+{
+    var certificatePath = builder.Configuration["DataProtection:CertificatePath"];
+    if (string.IsNullOrWhiteSpace(certificatePath) || !File.Exists(certificatePath))
+    {
+        throw new InvalidOperationException(
+            "Data Protection exige DataProtection__CertificatePath apontando para um certificado privado fora de Development.");
+    }
+
+    var certificatePassword = builder.Configuration["DataProtection:CertificatePassword"];
+    var certificate = new X509Certificate2(certificatePath, certificatePassword, X509KeyStorageFlags.EphemeralKeySet);
+    dataProtectionBuilder.ProtectKeysWithCertificate(certificate);
+}
 builder.Services.Configure<CloudinaryOptions>(options =>
 {
     options.CloudName = builder.Configuration["Cloudinary:CloudName"] ?? string.Empty;
@@ -131,9 +149,11 @@ builder.Services.AddScoped<IOrderAccessCredentialService, OrderAccessCredentialS
 builder.Services.AddScoped<OrderPaymentService>();
 builder.Services.AddScoped<IOrderRecoveryService, OrderRecoveryService>();
 builder.Services.AddSingleton<OrderRecoveryRateLimiter>();
+builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, MySqlDistributedCache>();
 
 builder.Services.AddRateLimiter(options =>
 {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("order-tracking", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -144,15 +164,27 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("order-create", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}|{context.Session.Id}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 8,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
-
-builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromHours(2);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
 var app = builder.Build();

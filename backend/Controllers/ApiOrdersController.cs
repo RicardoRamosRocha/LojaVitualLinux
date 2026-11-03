@@ -161,6 +161,7 @@ public sealed class ApiOrdersController : ControllerBase
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("order-create")]
     public async Task<ActionResult<ApiOrderResponse>> CreateOrder(
         CreateApiOrderRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,

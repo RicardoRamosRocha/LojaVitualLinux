@@ -1,10 +1,11 @@
 using LojaVirtual.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 
 namespace LojaVirtual.Data;
 
-public class AppDbContext : IdentityDbContext<ApplicationUser>
+public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -25,6 +26,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Customer> Customers { get; set; }
 
     public DbSet<Address> Addresses { get; set; }
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
+    public DbSet<DistributedCacheEntry> DistributedCacheEntries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
