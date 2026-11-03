@@ -18,6 +18,15 @@ Variáveis necessárias:
 - `MercadoPago__WebhookUrl`: URL HTTPS pública do endpoint `/api/payments/mercadopago/webhook`.
 - `Storefront__BaseUrl`: URL HTTPS pública do frontend.
 
+Para permitir chamadas diretas do frontend ao backend, configure a origem HTTPS
+da Vercel no índice `Cors__AllowedOrigins__0`. A arquitetura atual usa proxies
+Next.js e não depende de CORS no navegador, mas a política permanece explícita
+e não aceita qualquer origem.
+
+O endpoint público de liveness é:
+
+- `/health`: não exige autenticação e não executa migrations.
+
 Opcionalmente, para recuperação de pedido por e-mail:
 
 - `Resend__Enabled`.
@@ -27,6 +36,11 @@ Opcionalmente, para recuperação de pedido por e-mail:
 
 Credenciais devem ser configuradas no gerenciador de environment variables do
 Render. Não devem ser colocadas em `appsettings.json`, no Git ou em logs.
+
+Para o MySQL Aiven, a connection string deve usar TLS com validação da CA, por
+exemplo com os parâmetros `SslMode=VerifyCA` e `SslCa=<caminho-do-arquivo-ca>`.
+O arquivo CA deve ser fornecido como secret file do ambiente, ou por outro
+mecanismo seguro equivalente. Não usar `SslMode=None` em Staging ou produção.
 
 ## Frontend na Vercel
 
@@ -53,6 +67,7 @@ de revisar o banco-alvo. Esta documentação não autoriza nem executa migration
 - Confirmar que a migration `20261102174815_AddOrderAccessRecoveryTokens` e seu
   Designer estão versionados junto com o snapshot EF Core.
 - Confirmar que o serviço responde na porta fornecida pelo Render.
+- Confirmar `GET /health` retornando HTTP 200.
 - Confirmar `GET /api/products` usando a URL pública do backend.
 - Confirmar que o frontend usa `NEXT_PUBLIC_API_URL` do backend de homologação.
 - Confirmar URLs HTTPS públicas para storefront e webhook do Mercado Pago.
