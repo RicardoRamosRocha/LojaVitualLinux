@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { getProducts } from "@/lib/api";
+import { groupProductsByCategory } from "@/lib/product-groups";
+import type { Product } from "@/lib/types";
 import { ProductCard } from "@/components/product-card";
+import { HeroVideo } from "@/components/hero-video";
 
 const backendUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 const institutionalVideoUrl = backendUrl
@@ -18,6 +21,22 @@ function ProductGridFallback() {
         <div className="product-skeleton" key={index} />
       ))}
     </div>
+  );
+}
+
+function ProductCategorySection({ name, products }: { name: string; products: Product[] }) {
+  const headingId = `category-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+  return (
+    <section className="category-section" aria-labelledby={headingId}>
+      <div className="category-section__heading">
+        <h3 id={headingId}>{name}</h3>
+        {products.length > 2 && <span className="category-section__hint">Deslize para ver mais</span>}
+      </div>
+      <div className="category-carousel" role="region" aria-label={`Produtos de ${name}`}>
+        {products.map((product) => <ProductCard key={product.id} product={product} />)}
+      </div>
+    </section>
   );
 }
 
@@ -45,9 +64,9 @@ async function ProductSection() {
   }
 
   return (
-    <div className="product-grid">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
+    <div className="category-sections">
+      {groupProductsByCategory(products).map((group) => (
+        <ProductCategorySection key={group.key} name={group.name} products={group.products} />
       ))}
     </div>
   );
@@ -85,20 +104,7 @@ export default function Home() {
               <span>Angel</span>
               <small>Detalhes que iluminam</small>
             </div>
-            {institutionalVideoUrl ? (
-              <video
-                className="hero-video"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-                poster={institutionalVideoPoster}
-              >
-                <source src={institutionalVideoUrl} type="video/mp4" />
-                Seu navegador não suporta vídeo HTML5.
-              </video>
-            ) : null}
+            {institutionalVideoUrl ? <HeroVideo src={institutionalVideoUrl} poster={institutionalVideoPoster} /> : null}
             <div className="hero-video-caption" aria-hidden="true">A delicadeza está nos detalhes</div>
           </div>
         </div>

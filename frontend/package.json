@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:media": "node --experimental-strip-types --test src/lib/media-url.test.ts",
+    "test:media": "node --experimental-strip-types --test src/lib/media-url.test.ts src/lib/product-groups.test.ts",
     "test:cart": "node --experimental-strip-types --test src/lib/cart-storage.test.ts src/lib/cart-summary.test.ts src/app/api/cart/proxy.test.ts"
   },
   "dependencies": {

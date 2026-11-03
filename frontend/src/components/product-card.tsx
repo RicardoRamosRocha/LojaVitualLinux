@@ -11,7 +11,7 @@ function getProductImage(product: Product) {
   return resolveMediaUrl(product.imageUrls[0] ?? product.imageUrl);
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, showCategory = false }: { product: Product; showCategory?: boolean }) {
   const image = getProductImage(product);
   const isAvailable = product.stock > 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;
@@ -32,7 +32,7 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         <div className="product-card__content">
-          <p className="product-card__category">{product.category?.name ?? "Acessórios"}</p>
+          {showCategory && <p className="product-card__category">{product.category?.name ?? "Acessórios"}</p>}
           <h3>{product.name}</h3>
           <p className="product-card__price">{currency.format(product.price)}</p>
           <p className={`product-card__stock ${!isAvailable ? "is-unavailable" : ""}`}>
