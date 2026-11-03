@@ -1,6 +1,13 @@
 import type { CartResponse, CartError } from "@/lib/cart-types";
+import { readStoredCart, writeStoredCart } from "@/lib/cart-storage";
 
 const cartRequestTimeoutMs = 10000;
+const cartUpdatedEvent = "angel:cart-updated";
+
+function publishCart(cart: CartResponse) {
+  writeStoredCart(cart);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(cartUpdatedEvent));
+}
 
 type CartFetchResult = {
   cart: CartResponse;
@@ -43,10 +50,23 @@ export async function fetchCart(): Promise<CartFetchResult> {
     headers: { Accept: "application/json" },
   });
 
-  return {
-    cart: await parseResponse(response),
-    csrfToken: response.headers.get("X-CSRF-TOKEN"),
-  };
+  let cart = await parseResponse(response);
+  const csrfToken = response.headers.get("X-CSRF-TOKEN");
+
+  // The backend session is authoritative. This fallback only restores the
+  // non-sensitive cart item ids/quantities after an in-memory session restart.
+  if (cart.items.length === 0 && csrfToken) {
+    for (const item of readStoredCart()) {
+      try {
+        cart = await addCartItem(item.productId, item.quantity, csrfToken);
+      } catch {
+        // Ignore stale/unavailable items and continue restoring the cart.
+      }
+    }
+  }
+
+  writeStoredCart(cart);
+  return { cart, csrfToken };
 }
 
 async function mutateCart(
@@ -71,17 +91,29 @@ async function mutateCart(
 }
 
 export function addCartItem(productId: number, quantity: number, csrfToken: string) {
-  return mutateCart("/api/cart/items", "POST", csrfToken, { productId, quantity });
+  return mutateCart("/api/cart/items", "POST", csrfToken, { productId, quantity }).then((cart) => {
+    publishCart(cart);
+    return cart;
+  });
 }
 
 export function updateCartItem(productId: number, quantity: number, csrfToken: string) {
-  return mutateCart(`/api/cart/items/${productId}`, "PATCH", csrfToken, { quantity });
+  return mutateCart(`/api/cart/items/${productId}`, "PATCH", csrfToken, { quantity }).then((cart) => {
+    publishCart(cart);
+    return cart;
+  });
 }
 
 export function removeCartItem(productId: number, csrfToken: string) {
-  return mutateCart(`/api/cart/items/${productId}`, "DELETE", csrfToken);
+  return mutateCart(`/api/cart/items/${productId}`, "DELETE", csrfToken).then((cart) => {
+    publishCart(cart);
+    return cart;
+  });
 }
 
 export function clearCart(csrfToken: string) {
-  return mutateCart("/api/cart", "DELETE", csrfToken);
+  return mutateCart("/api/cart", "DELETE", csrfToken).then((cart) => {
+    publishCart(cart);
+    return cart;
+  });
 }

@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:media": "node --experimental-strip-types --test src/lib/media-url.test.ts"
+    "test:media": "node --experimental-strip-types --test src/lib/media-url.test.ts",
+    "test:cart": "node --experimental-strip-types --test src/lib/cart-storage.test.ts src/lib/cart-summary.test.ts src/app/api/cart/proxy.test.ts"
   },
   "dependencies": {
+    "lucide-react": "^1.67.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"
