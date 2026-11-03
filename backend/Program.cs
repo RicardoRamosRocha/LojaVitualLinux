@@ -187,6 +187,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");
+app.MapGet("/", () => Results.Redirect("/Admin/Index"));
 app.MapControllers();
 
 app.MapControllerRoute(

@@ -68,6 +68,10 @@ de revisar o banco-alvo. Esta documentação não autoriza nem executa migration
   Designer estão versionados junto com o snapshot EF Core.
 - Confirmar que o serviço responde na porta fornecida pelo Render.
 - Confirmar `GET /health` retornando HTTP 200.
+- Confirmar que `GET /` redireciona para `/Admin/Index`. Visitantes não
+  autenticados devem ser encaminhados pelo ASP.NET Identity para
+  `/Account/Login`; somente usuários autorizados pela policy `AdminOnly`
+  podem acessar o painel.
 - Confirmar `GET /api/products` usando a URL pública do backend.
 - Confirmar que o frontend usa `NEXT_PUBLIC_API_URL` do backend de homologação.
 - Confirmar URLs HTTPS públicas para storefront e webhook do Mercado Pago.
