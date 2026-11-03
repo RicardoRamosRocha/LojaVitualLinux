@@ -3,6 +3,14 @@ import Link from "next/link";
 import { getProducts } from "@/lib/api";
 import { ProductCard } from "@/components/product-card";
 
+const backendUrl = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+const institutionalVideoUrl = backendUrl
+  ? `${backendUrl}/videos/products/Video%20Home.mp4`
+  : null;
+const institutionalVideoPoster = backendUrl
+  ? `${backendUrl}/images/products/banner-angel.jpg`
+  : undefined;
+
 function ProductGridFallback() {
   return (
     <div className="product-grid" aria-label="Carregando produtos" aria-busy="true">
@@ -61,14 +69,38 @@ export default function Home() {
           <Link className="nav-link" href="/pedidos">Meus pedidos</Link>
         </nav>
 
-        <div className="hero-content" id="inicio">
-          <p className="eyebrow">Detalhes que contam histórias</p>
-          <h1>Seu brilho, <em>seu momento.</em></h1>
-          <p className="hero-copy">
-            Joias e acessórios escolhidos para acompanhar a sua essência com delicadeza,
-            presença e um toque dourado.
-          </p>
-          <a className="hero-cta" href="#colecao">Conheça a coleção <span>↘</span></a>
+        <div className="hero-layout">
+          <div className="hero-content" id="inicio">
+            <p className="eyebrow">Detalhes que contam histórias</p>
+            <h1>Seu brilho, <em>seu momento.</em></h1>
+            <p className="hero-copy">
+              Joias e acessórios escolhidos para acompanhar a sua essência com delicadeza,
+              presença e um toque dourado.
+            </p>
+            <a className="hero-cta" href="#colecao">Conheça a coleção <span>↘</span></a>
+          </div>
+
+          <div className="hero-video-shell" aria-label="Vídeo institucional Angel Acessórios">
+            <div className="hero-video-fallback">
+              <span>Angel</span>
+              <small>Detalhes que iluminam</small>
+            </div>
+            {institutionalVideoUrl ? (
+              <video
+                className="hero-video"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                poster={institutionalVideoPoster}
+              >
+                <source src={institutionalVideoUrl} type="video/mp4" />
+                Seu navegador não suporta vídeo HTML5.
+              </video>
+            ) : null}
+            <div className="hero-video-caption" aria-hidden="true">A delicadeza está nos detalhes</div>
+          </div>
         </div>
 
         <div className="hero-orbit hero-orbit--one" aria-hidden="true" />
