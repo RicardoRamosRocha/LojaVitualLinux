@@ -344,12 +344,19 @@ public sealed class PaymentFlowTests
         var from = DateTimeOffset.ParseExact(fromText, "yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
         var to = DateTimeOffset.ParseExact(toText, "yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
 
-        Assert.EndsWith("+00:00", fromText);
-        Assert.EndsWith("+00:00", toText);
+        Assert.Matches(
+            "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}-03:00$",
+            fromText);
+        Assert.Matches(
+            "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}-03:00$",
+            toText);
         Assert.True(from <= handler.ReceivedAtUtc);
         Assert.True(to > handler.ReceivedAtUtc);
         Assert.True(to > from);
-        Assert.Equal(expectedExpiration.ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture), toText);
+        Assert.Equal(
+            expectedExpiration.ToOffset(TimeSpan.FromHours(-3))
+                .ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture),
+            toText);
     }
 
     private static AppDbContext CreateContext(SqliteConnection connection)

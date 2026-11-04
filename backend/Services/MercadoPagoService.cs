@@ -13,6 +13,7 @@ namespace LojaVirtual.Web.Services;
 public sealed class MercadoPagoService : IMercadoPagoService
 {
     private const string ApiBaseUrl = "https://api.mercadopago.com";
+    private static readonly TimeSpan MercadoPagoTimeZoneOffset = TimeSpan.FromHours(-3);
     private readonly HttpClient _httpClient;
     private readonly IConfiguration _configuration;
     private readonly ILogger<MercadoPagoService>? _logger;
@@ -260,7 +261,8 @@ public sealed class MercadoPagoService : IMercadoPagoService
         root.TryGetProperty(name, out var property) && property.ValueKind != JsonValueKind.Null ? property.ToString() : null;
 
     private static string FormatPreferenceDate(DateTimeOffset value) =>
-        value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
+        value.ToOffset(MercadoPagoTimeZoneOffset)
+            .ToString("yyyy-MM-dd'T'HH:mm:ss.fffzzz", CultureInfo.InvariantCulture);
 
     private static DateTimeOffset? GetDate(JsonElement root, string name) =>
         DateTimeOffset.TryParse(GetString(root, name), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var value) ? value : null;
