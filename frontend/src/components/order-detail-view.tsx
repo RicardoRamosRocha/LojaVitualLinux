@@ -15,6 +15,27 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? "Data não disponível" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(date);
 }
 
+function paymentStatusMessage(status?: string) {
+  switch (status) {
+    case "Aprovado":
+      return "Pagamento confirmado pelo Mercado Pago.";
+    case "AprovadoAguardandoEstoque":
+      return "Pagamento aprovado; aguardando a confirmação do estoque.";
+    case "EmProcessamento":
+      return "O pagamento está em processamento no Mercado Pago.";
+    case "Recusado":
+      return "O pagamento foi recusado pelo Mercado Pago.";
+    case "Cancelado":
+      return "O pagamento foi cancelado.";
+    case "Expirado":
+      return "O prazo para pagamento expirou.";
+    case "Reembolsado":
+      return "O pagamento foi reembolsado.";
+    default:
+      return "Este pedido está pendente e ainda não representa pagamento confirmado.";
+  }
+}
+
 export function OrderDetailView({ reference }: { reference: string }) {
   const [order, setOrder] = useState<OrderResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +96,7 @@ export function OrderDetailView({ reference }: { reference: string }) {
         <p className="order-note">Status financeiro: {order.paymentStatus ?? "Aguardando confirmação"}</p>
         {order.status === "Pendente" && !order.checkoutUrl && <div className="order-payment-action"><button className="cart-button" type="button" onClick={handleResumePayment} disabled={resumingPayment}>{resumingPayment ? "Validando pagamento..." : "Retomar pagamento"}</button>{paymentError && <p className="order-note" role="alert">{paymentError}</p>}</div>}
         <div className="order-detail-card"><div className="order-detail-card__header"><div><p className="eyebrow">Resumo</p><h2>Pedido #{order.id}</h2></div><strong>{order.status}</strong></div><div className="order-items">{order.items.map((item) => <div className="order-item" key={item.productId}><span>{item.quantity} × Produto #{item.productId}</span><strong>{currency.format(item.subtotal)}</strong></div>)}</div><div className="order-total-line"><span>Subtotal</span><strong>{currency.format(order.subtotal)}</strong></div><div className="order-total-line"><span>Frete</span><strong>{currency.format(order.shippingCost)}</strong></div><div className="order-total-line order-total-line--final"><span>Total</span><strong>{currency.format(order.total)}</strong></div></div>
-        <aside className="order-timeline" aria-label="Linha do tempo do pedido"><p className="eyebrow">Acompanhamento</p><div className="order-timeline__step is-current"><span aria-hidden="true" /><div><strong>Status atual: {order.status}</strong><small>Pedido registrado em {formatDate(order.createdAt)}.</small></div></div><div className="order-timeline__step"><span aria-hidden="true" /><div><strong>Próximas atualizações</strong><small>Serão exibidas aqui quando disponibilizadas pela API.</small></div></div><p className="order-note">Este pedido está pendente e não representa pagamento confirmado.</p></aside>
+        <aside className="order-timeline" aria-label="Linha do tempo do pedido"><p className="eyebrow">Acompanhamento</p><div className="order-timeline__step is-current"><span aria-hidden="true" /><div><strong>Status atual: {order.status}</strong><small>Pedido registrado em {formatDate(order.createdAt)}.</small></div></div><div className="order-timeline__step"><span aria-hidden="true" /><div><strong>Próximas atualizações</strong><small>Serão exibidas aqui quando disponibilizadas pela API.</small></div></div><p className="order-note">{paymentStatusMessage(order.paymentStatus)}</p></aside>
       </div>
     </section>
   );
