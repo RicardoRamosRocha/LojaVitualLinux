@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -23,7 +24,7 @@ public sealed class OrderRecoveryTests
         var sender = new RecordingEmailSender();
         var service = new OrderRecoveryService(context, new FakeOrderAccessService(), sender);
 
-        var result = await service.RequestAsync(22, "unknown@example.com");
+        var result = await service.RequestAsync("unknown@example.com");
 
         Assert.True(result.Accepted);
         Assert.Empty(sender.Messages);
@@ -40,7 +41,7 @@ public sealed class OrderRecoveryTests
         var sender = new RecordingEmailSender();
         var service = new OrderRecoveryService(context, new FakeOrderAccessService(), sender);
 
-        await service.RequestAsync(22, " CLIENTE@example.com ");
+        await service.RequestAsync(" CLIENTE@example.com ");
 
         var message = Assert.Single(sender.Messages);
         var token = ExtractToken(message.HtmlBody);
@@ -48,6 +49,32 @@ public sealed class OrderRecoveryTests
         Assert.NotEqual(token, stored.TokenHash);
         Assert.Equal(22, stored.OrderId);
         Assert.True(stored.ExpiresAtUtc > DateTime.UtcNow.AddMinutes(14));
+    }
+
+    [Fact]
+    public async Task Matching_email_creates_one_link_per_order_without_exposing_order_lookup()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = CreateContext(connection);
+        SeedOrder(context, 22, "cliente@example.com");
+        SeedOrder(context, 23, "cliente@example.com");
+        var sender = new RecordingEmailSender();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Storefront:BaseUrl"] = "https://store.example.test"
+            })
+            .Build();
+        var service = new OrderRecoveryService(context, new FakeOrderAccessService(), sender, configuration);
+
+        await service.RequestAsync("cliente@example.com");
+
+        var message = Assert.Single(sender.Messages);
+        Assert.Equal(2, await context.OrderAccessRecoveryTokens.CountAsync());
+        Assert.Contains("recoveryOrderId=22", message.HtmlBody);
+        Assert.Contains("recoveryOrderId=23", message.HtmlBody);
+        Assert.DoesNotContain("cliente@example.com", message.HtmlBody);
     }
 
     [Fact]
@@ -60,7 +87,7 @@ public sealed class OrderRecoveryTests
         var sender = new RecordingEmailSender();
         var access = new FakeOrderAccessService();
         var service = new OrderRecoveryService(context, access, sender);
-        await service.RequestAsync(22, "cliente@example.com");
+        await service.RequestAsync("cliente@example.com");
         var token = ExtractToken(Assert.Single(sender.Messages).HtmlBody);
 
         var http = new DefaultHttpContext();
@@ -82,7 +109,7 @@ public sealed class OrderRecoveryTests
         var sender = new RecordingEmailSender();
         var access = new FakeOrderAccessService();
         var service = new OrderRecoveryService(context, access, sender);
-        await service.RequestAsync(22, "cliente@example.com");
+        await service.RequestAsync("cliente@example.com");
         var token = ExtractToken(Assert.Single(sender.Messages).HtmlBody);
         var http = new DefaultHttpContext();
 
@@ -90,7 +117,7 @@ public sealed class OrderRecoveryTests
         Assert.True((await service.ConfirmAsync(22, token, http.Request, http.Response)).Confirmed);
         Assert.False((await service.ConfirmAsync(22, token, http.Request, http.Response)).Confirmed);
 
-        await service.RequestAsync(22, "cliente@example.com");
+        await service.RequestAsync("cliente@example.com");
         var expiredToken = ExtractToken(sender.Messages[^1].HtmlBody);
         var recovery = await context.OrderAccessRecoveryTokens.OrderByDescending(item => item.Id).FirstAsync();
         recovery.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1);
@@ -108,7 +135,7 @@ public sealed class OrderRecoveryTests
         var sender = new FailingEmailSender();
         var service = new OrderRecoveryService(context, new FakeOrderAccessService(), sender);
 
-        var result = await service.RequestAsync(22, "cliente@example.com");
+        var result = await service.RequestAsync("cliente@example.com");
 
         Assert.True(result.Accepted);
         Assert.Single(await context.OrderAccessRecoveryTokens.ToListAsync());
@@ -125,7 +152,7 @@ public sealed class OrderRecoveryTests
         SeedOrder(rootContext, 22, "cliente@example.com");
         var sender = new RecordingEmailSender();
         var rootService = new OrderRecoveryService(rootContext, new FakeOrderAccessService(), sender);
-        await rootService.RequestAsync(22, "cliente@example.com");
+        await rootService.RequestAsync("cliente@example.com");
         var token = ExtractToken(Assert.Single(sender.Messages).HtmlBody);
 
         await using var firstConnection = new SqliteConnection(connectionString);

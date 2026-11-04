@@ -4,6 +4,7 @@ using System.Text;
 using LojaVirtual.Data;
 using LojaVirtual.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace LojaVirtual.Services;
 
@@ -14,7 +15,6 @@ public sealed record OrderRecoveryConfirmationResult(bool Confirmed);
 public interface IOrderRecoveryService
 {
     Task<OrderRecoveryRequestResult> RequestAsync(
-        int orderId,
         string email,
         CancellationToken cancellationToken = default);
 
@@ -32,50 +32,60 @@ public sealed class OrderRecoveryService : IOrderRecoveryService
     private readonly AppDbContext _context;
     private readonly IOrderAccessCredentialService _orderAccess;
     private readonly ITransactionalEmailSender _emailSender;
+    private readonly IConfiguration? _configuration;
 
     public OrderRecoveryService(
         AppDbContext context,
         IOrderAccessCredentialService orderAccess,
-        ITransactionalEmailSender emailSender)
+        ITransactionalEmailSender emailSender,
+        IConfiguration? configuration = null)
     {
         _context = context;
         _orderAccess = orderAccess;
         _emailSender = emailSender;
+        _configuration = configuration;
     }
 
     public async Task<OrderRecoveryRequestResult> RequestAsync(
-        int orderId,
         string email,
         CancellationToken cancellationToken = default)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
-        if (orderId <= 0 || string.IsNullOrWhiteSpace(normalizedEmail) || !IsValidEmail(normalizedEmail))
+        if (string.IsNullOrWhiteSpace(normalizedEmail) || !IsValidEmail(normalizedEmail))
         {
             return new OrderRecoveryRequestResult(true);
         }
 
-        var order = await _context.Orders
-            .SingleOrDefaultAsync(item => item.Id == orderId && item.Email.ToLower() == normalizedEmail, cancellationToken);
-        if (order is null) return new OrderRecoveryRequestResult(true);
+        var orders = await _context.Orders
+            .Where(item => item.Email.ToLower() == normalizedEmail)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToListAsync(cancellationToken);
+        if (orders.Count == 0) return new OrderRecoveryRequestResult(true);
 
-        var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-            .Replace("+", "-", StringComparison.Ordinal)
-            .Replace("/", "_", StringComparison.Ordinal)
-            .TrimEnd('=');
         var now = DateTime.UtcNow;
-        _context.OrderAccessRecoveryTokens.Add(new OrderAccessRecoveryToken
+        var messages = new List<string>(orders.Count);
+        foreach (var order in orders)
         {
-            OrderId = order.Id,
-            TokenHash = HashToken(rawToken),
-            CreatedAtUtc = now,
-            ExpiresAtUtc = now.Add(TokenLifetime)
-        });
+            var rawToken = GenerateToken();
+            _context.OrderAccessRecoveryTokens.Add(new OrderAccessRecoveryToken
+            {
+                OrderId = order.Id,
+                TokenHash = HashToken(rawToken),
+                CreatedAtUtc = now,
+                ExpiresAtUtc = now.Add(TokenLifetime)
+            });
+
+            var recoveryLink = BuildRecoveryLink(order.Id, rawToken);
+            messages.Add(recoveryLink is null
+                ? $"<li>Pedido {order.Id}: use o código <strong>{rawToken}</strong>.</li>"
+                : $"<li><a href=\"{recoveryLink}\">Acessar pedido {order.Id}</a></li>");
+        }
         await _context.SaveChangesAsync(cancellationToken);
 
         var message = new TransactionalEmailMessage(
-            order.Email,
+            normalizedEmail,
             "Recuperação de acesso aos seus pedidos",
-            $"<p>Use este código temporário para recuperar o acesso ao pedido {order.Id}:</p><p><strong>{rawToken}</strong></p><p>O código expira em 15 minutos e pode ser usado uma única vez.</p>");
+            $"<p>Use um dos links abaixo para recuperar o acesso aos seus pedidos:</p><ul>{string.Join(string.Empty, messages)}</ul><p>Os links expiram em 15 minutos e podem ser usados uma única vez.</p>");
         try
         {
             await _emailSender.SendAsync(message, cancellationToken);
@@ -124,6 +134,25 @@ public sealed class OrderRecoveryService : IOrderRecoveryService
     private static bool IsValidEmail(string email) =>
         email.Length <= 180 && email.Contains('@', StringComparison.Ordinal) &&
         email.IndexOf('@') > 0 && email.IndexOf('@') < email.Length - 1;
+
+    private string? BuildRecoveryLink(int orderId, string rawToken)
+    {
+        var storefrontUrl = _configuration?["Storefront:BaseUrl"]?.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(storefrontUrl) ||
+            !Uri.TryCreate(storefrontUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps)
+        {
+            return null;
+        }
+
+        return $"{storefrontUrl}/pedidos?recoveryOrderId={orderId}&recoveryToken={Uri.EscapeDataString(rawToken)}";
+    }
+
+    private static string GenerateToken() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .Replace("+", "-", StringComparison.Ordinal)
+            .Replace("/", "_", StringComparison.Ordinal)
+            .TrimEnd('=');
 
     private static string HashToken(string rawToken) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));

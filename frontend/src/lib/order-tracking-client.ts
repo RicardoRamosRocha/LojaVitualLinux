@@ -53,8 +53,8 @@ async function recoveryRequest(path: string, body: unknown, csrfToken: string): 
   });
 }
 
-export async function requestOrderRecovery(orderId: number, email: string, csrfToken: string) {
-  const response = await recoveryRequest("/api/orders/recovery/request", { orderId, email }, csrfToken);
+export async function requestOrderRecovery(email: string, csrfToken: string) {
+  const response = await recoveryRequest("/api/orders/recovery/request", { email }, csrfToken);
   if (!response.ok) throw new OrderTrackingApiError(response.status);
 }
 

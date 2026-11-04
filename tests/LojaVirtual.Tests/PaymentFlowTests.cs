@@ -161,6 +161,27 @@ public sealed class PaymentFlowTests
     }
 
     [Fact]
+    public async Task Approved_payment_cannot_be_resumed_or_create_a_new_preference()
+    {
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        await using var context = CreateContext(connection);
+        var order = SeedOrder(context, stock: 5, quantity: 2);
+        var attempt = await context.OrderPaymentAttempts.SingleAsync();
+        attempt.Status = PaymentStatusWorkflow.Approved;
+        attempt.PaymentId = "payment-1";
+        await context.SaveChangesAsync();
+
+        var mercadoPago = new CountingMercadoPagoService();
+        var service = new OrderPaymentService(context, mercadoPago, TestConfiguration());
+
+        var exception = await Assert.ThrowsAsync<PaymentEligibilityException>(() => service.EnsurePreferenceAsync(order));
+
+        Assert.Equal("payment_not_eligible", exception.Code);
+        Assert.Equal(0, mercadoPago.CreateCalls);
+    }
+
+    [Fact]
     public async Task Authorized_resume_endpoint_creates_payment_for_the_authorized_order()
     {
         await using var connection = new SqliteConnection("Data Source=:memory:");

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Data;
 using LojaVirtual.Data;
 using LojaVirtual.Models;
@@ -8,6 +9,7 @@ namespace LojaVirtual.Services;
 
 public sealed class OrderPaymentService
 {
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> PreferenceLocks = new();
     private readonly AppDbContext _context;
     private readonly IMercadoPagoService _mercadoPago;
     private readonly IConfiguration _configuration;
@@ -20,6 +22,22 @@ public sealed class OrderPaymentService
     }
 
     public async Task<OrderPaymentAttempt> EnsurePreferenceAsync(Order order, CancellationToken cancellationToken = default)
+    {
+        var gate = PreferenceLocks.GetOrAdd(order.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await EnsurePreferenceCoreAsync(order, cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task<OrderPaymentAttempt> EnsurePreferenceCoreAsync(
+        Order order,
+        CancellationToken cancellationToken)
     {
         var expirationMinutes = _configuration.GetValue("MercadoPago:PreferenceExpirationMinutes", 30);
         OrderPaymentAttempt attempt;
@@ -35,6 +53,23 @@ public sealed class OrderPaymentService
                 .Include(item => item.PaymentAttempts)
                 .SingleOrDefaultAsync(item => item.Id == order.Id, cancellationToken)
                 ?? throw new PaymentEligibilityException("order_not_found", "O pedido não foi encontrado.");
+
+            var latestPaymentStatus = current.PaymentAttempts
+                .OrderByDescending(item => item.AttemptNumber)
+                .Select(item => item.Status)
+                .FirstOrDefault();
+            if (latestPaymentStatus is PaymentStatusWorkflow.Approved
+                or PaymentStatusWorkflow.StockReview
+                or PaymentStatusWorkflow.Processing
+                or PaymentStatusWorkflow.Rejected
+                or PaymentStatusWorkflow.Cancelled
+                or PaymentStatusWorkflow.Expired
+                or PaymentStatusWorkflow.Refunded)
+            {
+                throw new PaymentEligibilityException(
+                    "payment_not_eligible",
+                    "O estado financeiro atual não permite iniciar ou retomar este pagamento.");
+            }
 
             await EnsureActiveReservationAsync(current, cancellationToken);
             var reservationExpiresAtUtc = GetReservationExpiresAtUtc(current);

@@ -92,11 +92,11 @@ public sealed class ApiOrdersController : ControllerBase
         OrderRecoveryRequest request,
         CancellationToken cancellationToken)
     {
-        var identifier = $"{request.OrderId}:{request.Email.Trim().ToLowerInvariant()}";
+        var identifier = request.Email.Trim().ToLowerInvariant();
         var clientAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         if (_recoveryRateLimiter.TryAcquire(clientAddress, identifier))
         {
-            await _recovery.RequestAsync(request.OrderId, request.Email, cancellationToken);
+            await _recovery.RequestAsync(request.Email, cancellationToken);
         }
 
         return Accepted(new OrderRecoveryResponse());
@@ -529,9 +529,6 @@ public sealed class CreateApiOrderRequest
 
 public sealed class OrderRecoveryRequest
 {
-    [Range(1, int.MaxValue)]
-    public int OrderId { get; set; }
-
     [Required, EmailAddress, StringLength(180)]
     public string Email { get; set; } = string.Empty;
 }
