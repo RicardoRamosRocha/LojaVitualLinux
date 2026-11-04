@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.RateLimiting;
 using LojaVirtual.Services;
@@ -89,15 +90,7 @@ var dataProtectionBuilder = builder.Services.AddDataProtection()
     .PersistKeysToDbContext<AppDbContext>();
 if (!builder.Environment.IsDevelopment())
 {
-    var certificatePath = builder.Configuration["DataProtection:CertificatePath"];
-    if (string.IsNullOrWhiteSpace(certificatePath) || !File.Exists(certificatePath))
-    {
-        throw new InvalidOperationException(
-            "Data Protection exige DataProtection__CertificatePath apontando para um certificado privado fora de Development.");
-    }
-
-    var certificatePassword = builder.Configuration["DataProtection:CertificatePassword"];
-    var certificate = new X509Certificate2(certificatePath, certificatePassword, X509KeyStorageFlags.EphemeralKeySet);
+    var certificate = LoadDataProtectionCertificate(builder.Configuration);
     dataProtectionBuilder.ProtectKeysWithCertificate(certificate);
 }
 builder.Services.Configure<CloudinaryOptions>(options =>
@@ -243,3 +236,103 @@ if (args.Any(argument => string.Equals(argument, "--provision-admin", StringComp
 }
 
 app.Run();
+
+static X509Certificate2 LoadDataProtectionCertificate(IConfiguration configuration)
+{
+    var certificateBase64 = configuration["DataProtection:CertificateBase64"];
+    var certificatePassword = configuration["DataProtection:CertificatePassword"];
+
+    if (!string.IsNullOrWhiteSpace(certificateBase64))
+    {
+        if (string.IsNullOrWhiteSpace(certificatePassword))
+        {
+            throw new InvalidOperationException(
+                "Data Protection não conseguiu carregar o certificado Base64: "
+                + "DataProtection__CertificatePassword não foi configurada.");
+        }
+
+        byte[] certificateBytes;
+        try
+        {
+            certificateBytes = Convert.FromBase64String(certificateBase64);
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException(
+                "Data Protection não conseguiu carregar o certificado Base64: "
+                + "DataProtection__CertificateBase64 não contém Base64 válido.");
+        }
+
+        return CreateValidatedDataProtectionCertificate(
+            () => new X509Certificate2(
+                certificateBytes,
+                certificatePassword,
+                X509KeyStorageFlags.EphemeralKeySet),
+            "DataProtection__CertificateBase64");
+    }
+
+    var certificatePath = configuration["DataProtection:CertificatePath"];
+    if (string.IsNullOrWhiteSpace(certificatePath))
+    {
+        throw new InvalidOperationException(
+            "Data Protection exige DataProtection__CertificateBase64 ou "
+            + "DataProtection__CertificatePath em Staging/Production.");
+    }
+
+    if (!File.Exists(certificatePath))
+    {
+        throw new InvalidOperationException(
+            "Data Protection não encontrou o certificado em "
+            + "DataProtection__CertificatePath.");
+    }
+
+    if (string.IsNullOrWhiteSpace(certificatePassword))
+    {
+        throw new InvalidOperationException(
+            "Data Protection não conseguiu carregar o certificado do caminho configurado: "
+            + "DataProtection__CertificatePassword não foi configurada.");
+    }
+
+    return CreateValidatedDataProtectionCertificate(
+        () => new X509Certificate2(
+            certificatePath,
+            certificatePassword,
+            X509KeyStorageFlags.EphemeralKeySet),
+        "DataProtection__CertificatePath");
+}
+
+static X509Certificate2 CreateValidatedDataProtectionCertificate(
+    Func<X509Certificate2> certificateFactory,
+    string certificateSource)
+{
+    X509Certificate2 certificate;
+    try
+    {
+        certificate = certificateFactory();
+    }
+    catch (CryptographicException)
+    {
+        throw new InvalidOperationException(
+            $"Data Protection não conseguiu abrir o certificado configurado em {certificateSource}. "
+            + "Verifique se o conteúdo é um PFX válido e se a senha está correta.");
+    }
+
+    var now = DateTime.UtcNow;
+    if (!certificate.HasPrivateKey)
+    {
+        certificate.Dispose();
+        throw new InvalidOperationException(
+            $"Data Protection exige um certificado privado em {certificateSource}; "
+            + "o certificado configurado não contém chave privada.");
+    }
+
+    if (now < certificate.NotBefore || now > certificate.NotAfter)
+    {
+        certificate.Dispose();
+        throw new InvalidOperationException(
+            $"Data Protection não pode usar o certificado em {certificateSource}: "
+            + "o certificado está fora do período de validade.");
+    }
+
+    return certificate;
+}

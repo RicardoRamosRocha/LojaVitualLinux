@@ -17,7 +17,8 @@ Variáveis necessárias:
 - `MercadoPago__WebhookSecret`: segredo configurado para validar o webhook.
 - `MercadoPago__WebhookUrl`: URL HTTPS pública do endpoint `/api/payments/mercadopago/webhook`.
 - `Storefront__BaseUrl`: URL HTTPS pública do frontend.
-- `DataProtection__CertificatePath`: caminho do secret file contendo o certificado
+- `DataProtection__CertificateBase64`: conteúdo Base64 do certificado PFX privado usado para criptografar as chaves de Data Protection. No Render, esta é a forma recomendada para evitar Secret File binário.
+- `DataProtection__CertificatePath`: caminho do Secret File contendo o certificado
   privado usado para criptografar as chaves de Data Protection.
 - `DataProtection__CertificatePassword`: senha do certificado, somente no
   ambiente do Render.
@@ -38,6 +39,12 @@ A aplicação persiste sessões e chaves de Data Protection no MySQL. O certific
 Para preparação local, os arquivos ficam fora do repositório em
 `~/angel-secrets/`:
 
+No Render, configure `DataProtection__CertificateBase64` com o conteúdo Base64
+do PFX e `DataProtection__CertificatePassword` como variável protegida. Se o
+Base64 não estiver configurado, a aplicação usa `DataProtection__CertificatePath`
+como alternativa para um Secret File. Não armazenar o certificado, o Base64, a
+senha ou as chaves no Git.
+
 - `angel-dataprotection.key`
 - `angel-dataprotection.crt`
 - `angel-dataprotection-hml.pfx`
@@ -48,6 +55,11 @@ A pasta deve permanecer com permissão `700` e os arquivos com `600`. O arquivo
 `DataProtection__CertificatePassword` como variável secreta. Não copiar esses
 arquivos para o projeto, para `frontend/public` ou para qualquer diretório
 servido pela aplicação.
+
+Para o Render, prefira `DataProtection__CertificateBase64` com o conteudo Base64
+do PFX e `DataProtection__CertificatePassword` como variavel protegida. O
+`DataProtection__CertificatePath` continua disponivel como alternativa para
+Secret File. Nao armazenar certificado, Base64, senha ou chaves no Git.
 
 O `POST /api/orders` possui limite de oito tentativas por dez minutos por
 combinação do endereço observado pelo servidor e da sessão. O limite retorna
