@@ -193,7 +193,7 @@ public sealed class MelhorEnvioOAuthService : IMelhorEnvioOAuthService
                 ["code"] = code.Trim()
             })
         };
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.UserAgent.ParseAdd(_options.UserAgent);
 
         HttpResponseMessage response;
         try

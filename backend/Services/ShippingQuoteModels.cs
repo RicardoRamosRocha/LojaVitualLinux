@@ -13,7 +13,7 @@ public sealed class ShippingOptions
     public string AuthorizationUrl { get; set; } = string.Empty;
     public string OAuthScope { get; set; } = string.Empty;
     public int OAuthStateLifetimeMinutes { get; set; } = 10;
-    public string UserAgent { get; set; } = "Angel Acessórios (contato técnico)";
+    public string UserAgent { get; set; } = "Angel-Acessorios/1.0 (contato-tecnico)";
     public int QuoteTtlMinutes { get; set; } = 10;
     public string Services { get; set; } = string.Empty;
     public StandardShippingPackage StandardPackage { get; set; } = new();

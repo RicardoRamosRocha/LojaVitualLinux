@@ -139,7 +139,7 @@ builder.Services.AddHttpClient<IShippingQuoteService, MelhorEnvioQuoteService>(c
 builder.Services.AddHttpClient<IMelhorEnvioConnectivityDiagnostics, MelhorEnvioConnectivityDiagnostics>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(5);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("Angel Acessórios connectivity diagnostic");
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(MelhorEnvioConnectivityDiagnostics.ConnectivityUserAgent);
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {

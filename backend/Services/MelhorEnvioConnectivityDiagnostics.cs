@@ -23,6 +23,8 @@ public interface IMelhorEnvioConnectivityDiagnostics
 
 public sealed class MelhorEnvioConnectivityDiagnostics : IMelhorEnvioConnectivityDiagnostics
 {
+    public const string ConnectivityUserAgent = "Angel-Acessorios-connectivity-diagnostic/1.0";
+
     private const string SandboxHost = "sandbox.melhorenvio.com.br";
     private const int HttpsPort = 443;
     private readonly HttpClient _httpClient;

@@ -82,7 +82,7 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
             Content = JsonContent.Create(body)
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        request.Headers.UserAgent.ParseAdd(_options.UserAgent);
 
         try
         {
@@ -193,7 +193,7 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
                     ["refresh_token"] = refreshToken
                 })
             };
-            request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+            request.Headers.UserAgent.ParseAdd(_options.UserAgent);
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
