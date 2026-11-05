@@ -136,6 +136,16 @@ builder.Services.AddHttpClient<IShippingQuoteService, MelhorEnvioQuoteService>(c
 {
     client.Timeout = TimeSpan.FromSeconds(8);
 });
+builder.Services.AddHttpClient<IMelhorEnvioConnectivityDiagnostics, MelhorEnvioConnectivityDiagnostics>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(5);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Angel Acessórios connectivity diagnostic");
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AllowAutoRedirect = false,
+    UseCookies = false
+});
 builder.Services.AddScoped<IMelhorEnvioTokenStore, MelhorEnvioTokenStore>();
 builder.Services.AddScoped<IMelhorEnvioOAuthService, MelhorEnvioOAuthService>();
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
@@ -171,6 +181,16 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 8,
                 Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("melhorenvio-diagnostics", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.Identity?.Name ?? "admin",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 1,
+                Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
