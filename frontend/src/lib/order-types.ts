@@ -8,6 +8,11 @@ export type CreateOrderRequest = {
   phone: string;
   zipCode?: string;
   address?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
   shippingMethod: ShippingMethod;
 };
 export type OrderApiErrorItem = {

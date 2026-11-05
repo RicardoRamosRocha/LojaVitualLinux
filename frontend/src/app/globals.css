@@ -176,6 +176,10 @@ h2 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(38px, 5vw,
 .checkout-fields input, .checkout-fields select { background: var(--paper); border: 1px solid var(--line); border-radius: 0; color: var(--ink); font: inherit; font-size: 14px; letter-spacing: normal; min-height: 48px; outline: 0; padding: 13px; text-transform: none; }
 .checkout-label-note { color: var(--muted); font-size: 9px; letter-spacing: .06em; }
 .checkout-fields input:focus, .checkout-fields select:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(183,140,85,.15); }
+.checkout-fields input[aria-invalid="true"] { border-color: #9b8177; }
+.checkout-field-error, .checkout-field-note { font-size: 10px; letter-spacing: normal; line-height: 1.4; text-transform: none; }
+.checkout-field-error { color: #9b8177; }
+.checkout-field-note { color: var(--muted); }
 .checkout-field--wide { grid-column: span 2; }
 .checkout-hint { color: var(--muted); font-size: 11px; line-height: 1.6; margin: 27px 0 0; }
 .checkout-summary { background: var(--cream); padding: 32px; position: sticky; top: 25px; }

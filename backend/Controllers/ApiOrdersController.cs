@@ -426,6 +426,11 @@ public sealed class ApiOrdersController : ControllerBase
             Phone = request.Phone.Trim(),
             ZipCode = request.ZipCode?.Trim() ?? string.Empty,
             Address = request.Address?.Trim() ?? string.Empty,
+            AddressNumber = request.AddressNumber?.Trim() ?? string.Empty,
+            AddressComplement = request.AddressComplement?.Trim() ?? string.Empty,
+            Neighborhood = request.Neighborhood?.Trim() ?? string.Empty,
+            City = request.City?.Trim() ?? string.Empty,
+            State = request.State?.Trim().ToUpperInvariant() ?? string.Empty,
             ShippingMethod = request.ShippingMethod.Trim().ToUpperInvariant()
         });
 
@@ -496,6 +501,21 @@ public sealed class ApiOrdersController : ControllerBase
             return ApiOrderError.MissingDeliveryAddress();
         }
 
+        if (requiresDeliveryAddress &&
+            (string.IsNullOrWhiteSpace(request.AddressNumber) ||
+             string.IsNullOrWhiteSpace(request.Neighborhood) ||
+             string.IsNullOrWhiteSpace(request.City) ||
+             string.IsNullOrWhiteSpace(request.State)))
+        {
+            return ApiOrderError.MissingDeliveryAddress();
+        }
+
+        if (requiresDeliveryAddress &&
+            !System.Text.RegularExpressions.Regex.IsMatch(request.ZipCode!.Trim(), @"^\d{5}-?\d{3}$"))
+        {
+            return ApiOrderError.InvalidZipCode();
+        }
+
         request.ShippingMethod = request.ShippingMethod.Trim().ToUpperInvariant();
         return null;
     }
@@ -522,6 +542,21 @@ public sealed class CreateApiOrderRequest
 
     [StringLength(240)]
     public string? Address { get; set; }
+
+    [StringLength(20)]
+    public string? AddressNumber { get; set; }
+
+    [StringLength(80)]
+    public string? AddressComplement { get; set; }
+
+    [StringLength(80)]
+    public string? Neighborhood { get; set; }
+
+    [StringLength(80)]
+    public string? City { get; set; }
+
+    [StringLength(2)]
+    public string? State { get; set; }
 
     [Required]
     public string ShippingMethod { get; set; } = string.Empty;
@@ -606,6 +641,12 @@ public sealed class ApiOrderError
     {
         Code = "missing_delivery_address",
         Message = "Endereço e CEP são obrigatórios para entrega."
+    };
+
+    public static ApiOrderError InvalidZipCode() => new()
+    {
+        Code = "invalid_zip_code",
+        Message = "Informe um CEP brasileiro válido com 8 dígitos."
     };
 
     public static ApiOrderError InvalidIdempotencyKey() => new()

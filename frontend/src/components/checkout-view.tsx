@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { fetchCart } from "@/lib/cart-client";
 import { clearStoredCart } from "@/lib/cart-storage";
 import { resolveMediaUrl } from "@/lib/api";
@@ -10,6 +10,8 @@ import { emptyCart } from "@/lib/cart-types";
 import { getOrderQuote, OrderApiError, OrderSubmissionUncertainError, prepareOrder } from "@/lib/order-client";
 import { fetchAuthorizedOrders } from "@/lib/order-tracking-client";
 import type { CreateOrderRequest, OrderQuoteResponse, OrderResponse, ShippingMethod } from "@/lib/order-types";
+import { formatCep, lookupCep } from "@/lib/cep";
+import { validateCheckout, type CheckoutValidationErrors } from "@/lib/checkout-validation";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const checkoutStorageKey = "angel-checkout-order-v1";
@@ -55,6 +57,7 @@ function formatOrderError(error: unknown) {
   if (error.status === 400) {
     if (error.code === "empty_cart") return "Seu carrinho está vazio.";
     if (error.code === "missing_delivery_address") return "Preencha o endereço e o CEP para continuar.";
+    if (error.code === "invalid_zip_code") return "Informe um CEP brasileiro válido com 8 dígitos.";
     if (error.code === "invalid_shipping_method") return "Escolha uma modalidade de entrega válida.";
     return error.message;
   }
@@ -88,8 +91,12 @@ export function CheckoutView() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderResponse | null>(() => readStoredOrder()?.order ?? null);
   const [form, setForm] = useState<CheckoutForm>(initialForm);
+  const [fieldErrors, setFieldErrors] = useState<CheckoutValidationErrors>({});
+  const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [idempotencyKey, setIdempotencyKey] = useState(() => readStoredOrder()?.key ?? "");
   const [cartLoadAttempt, setCartLoadAttempt] = useState(0);
+  const cepRequest = useRef(0);
+  const requiresAddress = form.shippingMethod !== "RETIRADA";
 
   useEffect(() => {
     fetchCart()
@@ -125,14 +132,69 @@ export function CheckoutView() {
       });
   }, [cart.items.length, cart.subtotal, cartError, form.shippingMethod, loading]);
 
-  const requiresAddress = form.shippingMethod !== "RETIRADA";
+  useEffect(() => {
+    const digits = form.zipCode.replace(/\D/g, "");
+    const requestId = ++cepRequest.current;
+    const controller = new AbortController();
+
+    if (!requiresAddress || digits.length !== 8) {
+      setCepStatus("idle");
+      return () => controller.abort();
+    }
+
+    setCepStatus("loading");
+    lookupCep(digits, controller.signal)
+      .then((address) => {
+        if (requestId !== cepRequest.current) return;
+        setForm((current) => ({
+          ...current,
+          address: address.street || current.address,
+          neighborhood: address.neighborhood || current.neighborhood,
+          city: address.city || current.city,
+          state: address.state || current.state,
+        }));
+        setFieldErrors((current) => {
+          const next = { ...current };
+          delete next.cep;
+          delete next.address;
+          delete next.neighborhood;
+          delete next.city;
+          delete next.state;
+          return next;
+        });
+        setCepStatus("success");
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || requestId !== cepRequest.current) return;
+        setCepStatus("error");
+        setFieldErrors((current) => ({
+          ...current,
+          cep: error instanceof Error ? error.message : "Não foi possível consultar o CEP. Preencha o endereço manualmente.",
+        }));
+      });
+
+    return () => controller.abort();
+  }, [form.zipCode, requiresAddress]);
 
   function updateField(field: keyof CheckoutForm, value: string) {
     if (field === "shippingMethod") {
       setQuote(null);
       setQuoteError(null);
     }
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+    if (field === "zipCode") value = formatCep(value);
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function validateForm() {
+    const errors = validateCheckout({ ...form, requiresAddress });
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   function retryCartLoad() {
@@ -144,6 +206,10 @@ export function CheckoutView() {
   async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting || order) return;
+    if (!validateForm()) {
+      setOrderError("Confira os campos destacados antes de continuar.");
+      return;
+    }
     if (!csrfToken) { setOrderError("Não foi possível validar sua sessão. Recarregue a página e tente novamente."); return; }
     if (!quote || quote.shippingMethod !== form.shippingMethod) {
       setOrderError("Aguarde o cálculo do frete antes de finalizar o pedido.");
@@ -170,7 +236,13 @@ export function CheckoutView() {
       }
       const request: CreateOrderRequest = {
         customerName: form.customerName.trim(), email: form.email.trim(), phone: form.phone.trim(),
-        zipCode: form.zipCode.trim(), address: formattedAddress, shippingMethod: form.shippingMethod,
+        zipCode: form.zipCode.trim(), address: formattedAddress,
+        addressNumber: requiresAddress ? form.number.trim() : undefined,
+        addressComplement: requiresAddress ? form.complement.trim() : undefined,
+        neighborhood: requiresAddress ? form.neighborhood.trim() : undefined,
+        city: requiresAddress ? form.city.trim() : undefined,
+        state: requiresAddress ? form.state.trim().toUpperCase() : undefined,
+        shippingMethod: form.shippingMethod,
       };
 
       const created = await prepareOrder(request, csrfToken, key);
@@ -224,20 +296,20 @@ export function CheckoutView() {
         <div className="checkout-layout">
           <form className="checkout-form" onSubmit={submitOrder}>
             <div className="checkout-section-heading"><p className="eyebrow">Seus dados</p><h2>Onde entregamos?</h2></div>
-            <div className="checkout-fields">
-              <label>Nome completo<input required minLength={2} maxLength={120} value={form.customerName} onChange={(event) => updateField("customerName", event.target.value)} autoComplete="name" /></label>
-              <label>E-mail<input required type="email" maxLength={180} value={form.email} onChange={(event) => updateField("email", event.target.value)} autoComplete="email" /></label>
-              <label>Telefone<input required minLength={8} maxLength={30} value={form.phone} onChange={(event) => updateField("phone", event.target.value)} autoComplete="tel" /></label>
+            <div className="checkout-fields" aria-live="polite">
+              <label htmlFor="checkout-name">Nome completo<input id="checkout-name" required minLength={2} maxLength={120} value={form.customerName} onChange={(event) => updateField("customerName", event.target.value)} autoComplete="name" aria-invalid={Boolean(fieldErrors.customerName)} aria-describedby={fieldErrors.customerName ? "checkout-name-error" : undefined} />{fieldErrors.customerName && <span id="checkout-name-error" className="checkout-field-error" role="alert">{fieldErrors.customerName}</span>}</label>
+              <label htmlFor="checkout-email">E-mail<input id="checkout-email" required type="email" maxLength={180} value={form.email} onChange={(event) => updateField("email", event.target.value)} autoComplete="email" inputMode="email" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "checkout-email-error" : undefined} />{fieldErrors.email && <span id="checkout-email-error" className="checkout-field-error" role="alert">{fieldErrors.email}</span>}</label>
+              <label htmlFor="checkout-phone">Telefone<input id="checkout-phone" required type="tel" minLength={8} maxLength={30} value={form.phone} onChange={(event) => updateField("phone", event.target.value)} autoComplete="tel" inputMode="tel" aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "checkout-phone-error" : undefined} />{fieldErrors.phone && <span id="checkout-phone-error" className="checkout-field-error" role="alert">{fieldErrors.phone}</span>}</label>
               <label>Modalidade<select value={form.shippingMethod} onChange={(event) => updateField("shippingMethod", event.target.value as ShippingMethod)}><option value="PAC">PAC</option><option value="SEDEX">SEDEX</option><option value="RETIRADA">Retirada</option></select></label>
-              <label>CEP<input required={requiresAddress} maxLength={20} value={form.zipCode} onChange={(event) => updateField("zipCode", event.target.value)} autoComplete="postal-code" /></label>
-              <label>Endereço<input required={requiresAddress} maxLength={120} value={form.address} onChange={(event) => updateField("address", event.target.value)} autoComplete="street-address" /></label>
-              <label>Número<input required={requiresAddress} maxLength={20} value={form.number} onChange={(event) => updateField("number", event.target.value)} autoComplete="address-line2" /></label>
-              <label>Complemento <span className="checkout-label-note">(opcional)</span><input maxLength={80} value={form.complement} onChange={(event) => updateField("complement", event.target.value)} autoComplete="address-line2" /></label>
-              <label>Bairro<input required={requiresAddress} maxLength={80} value={form.neighborhood} onChange={(event) => updateField("neighborhood", event.target.value)} autoComplete="address-level3" /></label>
-              <label>Cidade<input required={requiresAddress} maxLength={80} value={form.city} onChange={(event) => updateField("city", event.target.value)} autoComplete="address-level2" /></label>
-              <label>Estado<input required={requiresAddress} maxLength={2} value={form.state} onChange={(event) => updateField("state", event.target.value.toUpperCase())} autoComplete="address-level1" /></label>
+              <label htmlFor="checkout-cep">CEP<input id="checkout-cep" required={requiresAddress} maxLength={9} value={form.zipCode} onChange={(event) => updateField("zipCode", event.target.value)} autoComplete="postal-code" inputMode="numeric" aria-invalid={Boolean(fieldErrors.cep)} aria-describedby={fieldErrors.cep ? "checkout-cep-error" : "checkout-cep-status"} />{cepStatus === "loading" && <span id="checkout-cep-status" className="checkout-field-note" role="status">Consultando endereço…</span>}{cepStatus === "success" && <span id="checkout-cep-status" className="checkout-field-note" role="status">Endereço preenchido. Confira e corrija se necessário.</span>}{fieldErrors.cep && <span id="checkout-cep-error" className="checkout-field-error" role="alert">{fieldErrors.cep}</span>}</label>
+              <label htmlFor="checkout-address">Endereço<input id="checkout-address" required={requiresAddress} maxLength={120} value={form.address} onChange={(event) => updateField("address", event.target.value)} autoComplete="address-line1" aria-invalid={Boolean(fieldErrors.address)} aria-describedby={fieldErrors.address ? "checkout-address-error" : undefined} />{fieldErrors.address && <span id="checkout-address-error" className="checkout-field-error" role="alert">{fieldErrors.address}</span>}</label>
+              <label htmlFor="checkout-number">Número<input id="checkout-number" required={requiresAddress} maxLength={20} value={form.number} onChange={(event) => updateField("number", event.target.value)} inputMode="numeric" autoComplete="off" aria-invalid={Boolean(fieldErrors.number)} aria-describedby={fieldErrors.number ? "checkout-number-error" : undefined} />{fieldErrors.number && <span id="checkout-number-error" className="checkout-field-error" role="alert">{fieldErrors.number}</span>}</label>
+              <label htmlFor="checkout-complement">Complemento <span className="checkout-label-note">(opcional)</span><input id="checkout-complement" maxLength={80} value={form.complement} onChange={(event) => updateField("complement", event.target.value)} autoComplete="address-line2" /></label>
+              <label htmlFor="checkout-neighborhood">Bairro<input id="checkout-neighborhood" required={requiresAddress} maxLength={80} value={form.neighborhood} onChange={(event) => updateField("neighborhood", event.target.value)} autoComplete="address-level3" aria-invalid={Boolean(fieldErrors.neighborhood)} aria-describedby={fieldErrors.neighborhood ? "checkout-neighborhood-error" : undefined} />{fieldErrors.neighborhood && <span id="checkout-neighborhood-error" className="checkout-field-error" role="alert">{fieldErrors.neighborhood}</span>}</label>
+              <label htmlFor="checkout-city">Cidade<input id="checkout-city" required={requiresAddress} maxLength={80} value={form.city} onChange={(event) => updateField("city", event.target.value)} autoComplete="address-level2" aria-invalid={Boolean(fieldErrors.city)} aria-describedby={fieldErrors.city ? "checkout-city-error" : undefined} />{fieldErrors.city && <span id="checkout-city-error" className="checkout-field-error" role="alert">{fieldErrors.city}</span>}</label>
+              <label htmlFor="checkout-state">Estado<input id="checkout-state" required={requiresAddress} maxLength={2} value={form.state} onChange={(event) => updateField("state", event.target.value.toUpperCase())} autoComplete="address-level1" aria-invalid={Boolean(fieldErrors.state)} aria-describedby={fieldErrors.state ? "checkout-state-error" : undefined} />{fieldErrors.state && <span id="checkout-state-error" className="checkout-field-error" role="alert">{fieldErrors.state}</span>}</label>
             </div>
-            <p className="checkout-hint">O frete e o total definitivo são calculados e validados pelo servidor. O pedido ficará pendente; nenhum pagamento será iniciado.</p>
+            <p className="checkout-hint">O valor exibido usa a tabela comercial atual da loja e é validado pelo servidor. O pedido ficará pendente; nenhum pagamento será iniciado.</p>
             <button className="cart-button" type="submit" disabled={submitting || !quote}>{submitting ? "Abrindo Mercado Pago..." : "Pagar com Mercado Pago"}</button>
             <p className="cart-note">{submitting ? "Não feche esta página. O mesmo envio será reutilizado se for necessário tentar novamente." : "Você poderá revisar o status do pedido após o envio."}</p>
           </form>
@@ -251,7 +323,7 @@ export function CheckoutView() {
               })}
             </div>
             <div className="checkout-summary__line"><span>Subtotal</span><strong>{currency.format(quote?.subtotal ?? cart.subtotal)}</strong></div>
-            <div className="checkout-summary__line"><span>Frete</span><strong>{quote ? (quote.shippingCost === 0 ? "Grátis" : currency.format(quote.shippingCost)) : (quoteError ?? "Calculando...")}</strong></div>
+            <div className="checkout-summary__line"><span>Frete (tabela atual)</span><strong>{quote ? (quote.shippingCost === 0 ? "Grátis" : currency.format(quote.shippingCost)) : (quoteError ?? "Calculando...")}</strong></div>
             <div className="checkout-summary__total"><span>Total</span><strong>{quote ? currency.format(quote.total) : "Indisponível"}</strong></div>
           </aside>
         </div>
