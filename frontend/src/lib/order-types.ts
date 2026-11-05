@@ -1,6 +1,6 @@
 import type { CartResponse } from "@/lib/cart-types";
 
-export type ShippingMethod = "PAC" | "SEDEX" | "RETIRADA";
+export type ShippingMethod = string;
 
 export type CreateOrderRequest = {
   customerName: string;
@@ -14,6 +14,8 @@ export type CreateOrderRequest = {
   city?: string;
   state?: string;
   shippingMethod: ShippingMethod;
+  shippingQuoteId?: string;
+  shippingServiceId?: string;
 };
 export type OrderApiErrorItem = {
   productId: number;
@@ -35,6 +37,10 @@ export type OrderResponse = {
   shippingMethod?: string;
   subtotal: number;
   shippingCost: number;
+  shippingProvider?: string;
+  shippingServiceId?: string;
+  shippingServiceName?: string;
+  shippingDeliveryTime?: number;
   total: number;
   paymentStatus?: string;
   checkoutUrl?: string;
@@ -43,9 +49,23 @@ export type OrderResponse = {
 
 export type OrderQuoteResponse = {
   shippingMethod: ShippingMethod;
+  isRealQuote: boolean;
+  canCreateOrder: boolean;
+  quoteStatus: string;
+  quoteId?: string;
+  expiresAtUtc?: string;
   subtotal: number;
   shippingCost: number;
   total: number;
+  options: ShippingOption[];
+};
+
+export type ShippingOption = {
+  serviceId: string;
+  serviceName: string;
+  providerName: string;
+  price: number;
+  deliveryTimeDays?: number | null;
 };
 
 export type OrderError = {

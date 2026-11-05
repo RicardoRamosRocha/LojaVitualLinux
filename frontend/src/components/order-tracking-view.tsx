@@ -63,26 +63,28 @@ export function OrderTrackingView() {
     if (!Number.isInteger(orderId) || orderId <= 0 || !token) return;
 
     recoveryLinkHandled.current = true;
-    setRecoveryOpen(true);
-    setRecoveryLoading(true);
-    setRecoveryError(null);
-    setRecoveryMessage("Validando seu link de recuperação...");
-    fetchCart()
-      .then(({ csrfToken }) => {
-        if (!csrfToken) throw new Error("Não foi possível validar sua sessão. Recarregue a página.");
-        return confirmOrderRecovery(orderId, token, csrfToken);
-      })
-      .then(() => {
-        window.history.replaceState({}, document.title, "/pedidos");
-        setRecoveryMessage("Acesso recuperado. Seus pedidos autorizados foram carregados.");
-        loadOrders();
-      })
-      .catch((caughtError) => {
-        setRecoveryError(caughtError instanceof OrderTrackingApiError && caughtError.status === 401
-          ? "O link é inválido, expirou ou já foi utilizado."
-          : caughtError instanceof Error ? caughtError.message : "Não foi possível confirmar o link de recuperação.");
-      })
-      .finally(() => setRecoveryLoading(false));
+    queueMicrotask(() => {
+      setRecoveryOpen(true);
+      setRecoveryLoading(true);
+      setRecoveryError(null);
+      setRecoveryMessage("Validando seu link de recuperação...");
+      fetchCart()
+        .then(({ csrfToken }) => {
+          if (!csrfToken) throw new Error("Não foi possível validar sua sessão. Recarregue a página.");
+          return confirmOrderRecovery(orderId, token, csrfToken);
+        })
+        .then(() => {
+          window.history.replaceState({}, document.title, "/pedidos");
+          setRecoveryMessage("Acesso recuperado. Seus pedidos autorizados foram carregados.");
+          loadOrders();
+        })
+        .catch((caughtError) => {
+          setRecoveryError(caughtError instanceof OrderTrackingApiError && caughtError.status === 401
+            ? "O link é inválido, expirou ou já foi utilizado."
+            : caughtError instanceof Error ? caughtError.message : "Não foi possível confirmar o link de recuperação.");
+        })
+        .finally(() => setRecoveryLoading(false));
+    });
   }, [loadOrders]);
 
   function openRecovery() {

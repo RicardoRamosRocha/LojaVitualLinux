@@ -31,12 +31,17 @@ async function parseOrderResponse(response: Response): Promise<OrderResponse> {
   return data as OrderResponse;
 }
 
-export async function getOrderQuote(shippingMethod: CreateOrderRequest["shippingMethod"]): Promise<OrderQuoteResponse> {
+export async function getOrderQuote(
+  shippingMethod: CreateOrderRequest["shippingMethod"],
+  zipCode?: string,
+): Promise<OrderQuoteResponse> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), orderRequestTimeoutMs);
 
   try {
-    const response = await fetch(`/api/orders/quote?shippingMethod=${encodeURIComponent(shippingMethod)}`, {
+    const params = new URLSearchParams({ shippingMethod });
+    if (zipCode) params.set("zipCode", zipCode);
+    const response = await fetch(`/api/orders/quote?${params.toString()}`, {
       cache: "no-store",
       credentials: "same-origin",
       headers: { Accept: "application/json" },

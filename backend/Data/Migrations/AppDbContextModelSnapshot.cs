@@ -224,8 +224,31 @@ namespace LojaVirtual.Data.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<decimal?>("ShippingCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ShippingDeliveryTime")
+                        .HasColumnType("int");
+
                     b.Property<string>("ShippingMethod")
                         .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ShippingProvider")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ShippingQuoteId")
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<DateTimeOffset?>("ShippingQuotedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ShippingServiceId")
+                        .HasMaxLength(80)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("ShippingServiceName")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Status")

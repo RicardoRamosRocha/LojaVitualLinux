@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace LojaVirtual.Controllers;
 
@@ -22,6 +23,7 @@ public sealed class ApiOrdersController : ControllerBase
     private const string PendingStatus = "Pendente";
     private const string ReservationStatus = "Reservada";
     private const int ReservationLifetimeMinutes = 30;
+    private const string ShippingQuoteSessionKey = "shipping_quote";
 
     private readonly AppDbContext _context;
     private readonly IAntiforgery _antiforgery;
@@ -29,6 +31,8 @@ public sealed class ApiOrdersController : ControllerBase
     private readonly OrderPaymentService _payments;
     private readonly IOrderRecoveryService _recovery;
     private readonly OrderRecoveryRateLimiter _recoveryRateLimiter;
+    private readonly IShippingQuoteService _shippingQuotes;
+    private readonly ShippingOptions _shippingOptions;
 
     public ApiOrdersController(
         AppDbContext context,
@@ -36,7 +40,9 @@ public sealed class ApiOrdersController : ControllerBase
         IOrderAccessCredentialService orderAccess,
         OrderPaymentService payments,
         IOrderRecoveryService recovery,
-        OrderRecoveryRateLimiter recoveryRateLimiter)
+        OrderRecoveryRateLimiter recoveryRateLimiter,
+        IShippingQuoteService? shippingQuotes = null,
+        IOptions<ShippingOptions>? shippingOptions = null)
     {
         _context = context;
         _antiforgery = antiforgery;
@@ -44,6 +50,8 @@ public sealed class ApiOrdersController : ControllerBase
         _payments = payments;
         _recovery = recovery;
         _recoveryRateLimiter = recoveryRateLimiter;
+        _shippingQuotes = shippingQuotes ?? new DisabledShippingQuoteService();
+        _shippingOptions = shippingOptions?.Value ?? new ShippingOptions();
     }
 
     [HttpGet("authorized")]
@@ -260,8 +268,14 @@ public sealed class ApiOrdersController : ControllerBase
             return Conflict(ApiOrderError.InvalidCart(itemErrors));
         }
 
+        var shippingSelection = ResolveShippingSelection(request, quantities, products);
+        if (!shippingSelection.Success)
+        {
+            return StatusCode(shippingSelection.StatusCode, shippingSelection.Error);
+        }
+
         var subtotal = quantities.Sum(item => products[item.Key].Price * item.Value);
-        var shippingCost = ShippingCosts[request.ShippingMethod];
+        var shippingCost = shippingSelection.Option!.Price;
         var total = subtotal + shippingCost;
 
         var order = new Order
@@ -272,6 +286,15 @@ public sealed class ApiOrdersController : ControllerBase
             Address = request.Address?.Trim() ?? string.Empty,
             ZipCode = request.ZipCode?.Trim() ?? string.Empty,
             ShippingMethod = request.ShippingMethod,
+            ShippingCost = shippingCost,
+            ShippingProvider = shippingSelection.Option.ProviderName,
+            ShippingServiceId = shippingSelection.Option.ServiceId,
+            ShippingServiceName = shippingSelection.Option.ServiceName,
+            ShippingDeliveryTime = shippingSelection.Option.DeliveryTimeDays > 0
+                ? shippingSelection.Option.DeliveryTimeDays
+                : null,
+            ShippingQuotedAtUtc = shippingSelection.Option.QuotedAtUtc,
+            ShippingQuoteId = request.ShippingQuoteId?.Trim(),
             Total = total,
             Status = PendingStatus,
             CreatedAt = DateTime.Now,
@@ -358,14 +381,11 @@ public sealed class ApiOrdersController : ControllerBase
 
     [HttpGet("quote")]
     public async Task<ActionResult<ApiOrderQuoteResponse>> Quote(
-        [FromQuery] string shippingMethod,
+        [FromQuery] string? shippingMethod,
+        [FromQuery] string? zipCode,
         CancellationToken cancellationToken)
     {
-        var normalizedShippingMethod = shippingMethod.Trim().ToUpperInvariant();
-        if (!ShippingCosts.TryGetValue(normalizedShippingMethod, out var shippingCost))
-        {
-            return BadRequest(ApiOrderError.InvalidShippingMethod());
-        }
+        var normalizedShippingMethod = (shippingMethod ?? string.Empty).Trim().ToUpperInvariant();
 
         var cart = ReadCart();
         if (cart.Count == 0)
@@ -386,13 +406,72 @@ public sealed class ApiOrdersController : ControllerBase
         }
 
         var subtotal = quantities.Sum(item => products[item.Key].Price * item.Value);
-        return Ok(new ApiOrderQuoteResponse
+
+        if (normalizedShippingMethod == "RETIRADA")
         {
-            ShippingMethod = normalizedShippingMethod,
-            Subtotal = subtotal,
-            ShippingCost = shippingCost,
-            Total = subtotal + shippingCost
-        });
+            return Ok(ApiOrderQuoteResponse.Pickup(subtotal));
+        }
+
+        if (!_shippingOptions.RealQuotesEnabled)
+        {
+            var provisionalOptions = new List<ApiShippingOption>();
+            if (string.IsNullOrWhiteSpace(normalizedShippingMethod) || normalizedShippingMethod is "ALL" or "PAC")
+            {
+                provisionalOptions.Add(new ApiShippingOption("PAC", "PAC", "Provisório", 15m, null));
+            }
+            if (string.IsNullOrWhiteSpace(normalizedShippingMethod) || normalizedShippingMethod is "ALL" or "SEDEX")
+            {
+                provisionalOptions.Add(new ApiShippingOption("SEDEX", "SEDEX", "Provisório", 30m, null));
+            }
+
+            if (provisionalOptions.Count == 0)
+            {
+                return BadRequest(ApiOrderError.InvalidShippingMethod());
+            }
+
+            return Ok(ApiOrderQuoteResponse.Provisional(subtotal, provisionalOptions));
+        }
+
+        if (!IsValidPostalCode(zipCode))
+        {
+            return BadRequest(ApiOrderError.InvalidZipCode());
+        }
+
+        try
+        {
+            var quote = await _shippingQuotes.QuoteAsync(
+                NormalizePostalCode(zipCode!),
+                quantities.Select(item => new ShippingQuoteItem(item.Key, item.Value, products[item.Key].Price)).ToList(),
+                cancellationToken);
+            var quoteId = Guid.NewGuid().ToString("N");
+            var expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(_shippingOptions.QuoteTtlMinutes, 1, 60));
+            var options = quote.Options
+                .Select(option => new ApiShippingOption(
+                    option.ServiceId,
+                    option.ServiceName,
+                    option.ProviderName,
+                    option.Price,
+                    option.DeliveryTimeDays))
+                .ToList();
+            HttpContext.Session.SetObjectAsJson(ShippingQuoteSessionKey, new ShippingQuoteSnapshot
+            {
+                QuoteId = quoteId,
+                DestinationPostalCode = NormalizePostalCode(zipCode!),
+                CartFingerprint = CreateCartFingerprint(quantities, products),
+                ExpiresAtUtc = expiresAtUtc,
+                Options = options
+            });
+
+            return Ok(ApiOrderQuoteResponse.Real(
+                subtotal,
+                quoteId,
+                expiresAtUtc,
+                options));
+        }
+        catch (ShippingQuoteException exception)
+        {
+            return StatusCode(exception.StatusCode, ApiOrderError.FromShippingException(exception));
+        }
     }
 
     private async Task ReleaseExpiredReservationsAsync()
@@ -431,7 +510,9 @@ public sealed class ApiOrdersController : ControllerBase
             Neighborhood = request.Neighborhood?.Trim() ?? string.Empty,
             City = request.City?.Trim() ?? string.Empty,
             State = request.State?.Trim().ToUpperInvariant() ?? string.Empty,
-            ShippingMethod = request.ShippingMethod.Trim().ToUpperInvariant()
+            ShippingMethod = request.ShippingMethod.Trim().ToUpperInvariant(),
+            ShippingQuoteId = request.ShippingQuoteId?.Trim() ?? string.Empty,
+            ShippingServiceId = request.ShippingServiceId?.Trim() ?? string.Empty
         });
 
         return Hash(payload);
@@ -450,7 +531,7 @@ public sealed class ApiOrdersController : ControllerBase
         OrderPaymentAttempt? paymentAttempt = null)
     {
         var calculatedSubtotal = subtotal ?? order.Items.Sum(item => item.UnitPrice * item.Quantity);
-        var calculatedShipping = shippingCost ?? ShippingCosts.GetValueOrDefault(order.ShippingMethod);
+        var calculatedShipping = shippingCost ?? order.ShippingCost ?? ShippingCosts.GetValueOrDefault(order.ShippingMethod);
 
         return new ApiOrderResponse
         {
@@ -458,6 +539,10 @@ public sealed class ApiOrdersController : ControllerBase
             Status = order.Status,
             CreatedAt = order.CreatedAt,
             ShippingMethod = order.ShippingMethod,
+            ShippingProvider = order.ShippingProvider,
+            ShippingServiceId = order.ShippingServiceId,
+            ShippingServiceName = order.ShippingServiceName,
+            ShippingDeliveryTime = order.ShippingDeliveryTime,
             Subtotal = calculatedSubtotal,
             ShippingCost = calculatedShipping,
             Total = total ?? order.Total,
@@ -487,9 +572,82 @@ public sealed class ApiOrdersController : ControllerBase
             ["RETIRADA"] = 0m
         };
 
+    private ShippingSelectionResult ResolveShippingSelection(
+        CreateApiOrderRequest request,
+        IReadOnlyDictionary<int, int> quantities,
+        IReadOnlyDictionary<int, Product> products)
+    {
+        if (request.ShippingMethod.Equals("RETIRADA", StringComparison.OrdinalIgnoreCase))
+        {
+            return ShippingSelectionResult.Ok(new ShippingSelection(
+                "RETIRADA",
+                "Retirada",
+                "Angel Acessórios",
+                0m,
+                0,
+                null));
+        }
+
+        if (!_shippingOptions.RealQuotesEnabled)
+        {
+            return ShippingSelectionResult.Fail(ApiOrderError.RealShippingDisabled(), 409);
+        }
+
+        var snapshot = HttpContext.Session.GetObjectFromJson<ShippingQuoteSnapshot>(ShippingQuoteSessionKey);
+        if (snapshot is null || !string.Equals(snapshot.QuoteId, request.ShippingQuoteId, StringComparison.Ordinal))
+        {
+            return ShippingSelectionResult.Fail(ApiOrderError.QuoteExpired(), 409);
+        }
+
+        if (snapshot.ExpiresAtUtc <= DateTimeOffset.UtcNow ||
+            !string.Equals(snapshot.DestinationPostalCode, NormalizePostalCode(request.ZipCode!), StringComparison.Ordinal) ||
+            !string.Equals(snapshot.CartFingerprint, CreateCartFingerprint(quantities, products), StringComparison.Ordinal))
+        {
+            return ShippingSelectionResult.Fail(ApiOrderError.QuoteExpired(), 409);
+        }
+
+        var option = snapshot.Options.FirstOrDefault(item =>
+            string.Equals(item.ServiceId, request.ShippingServiceId, StringComparison.Ordinal));
+        if (option is null)
+        {
+            return ShippingSelectionResult.Fail(ApiOrderError.InvalidQuote(), 409);
+        }
+
+        return ShippingSelectionResult.Ok(new ShippingSelection(
+            option.ServiceId,
+            option.ServiceName,
+            option.ProviderName,
+            option.Price,
+            option.DeliveryTimeDays ?? 0,
+            snapshot.ExpiresAtUtc));
+    }
+
+    private string CreateCartFingerprint(
+        IReadOnlyDictionary<int, int> quantities,
+        IReadOnlyDictionary<int, Product> products)
+    {
+        var payload = JsonSerializer.Serialize(quantities
+            .OrderBy(item => item.Key)
+            .Select(item => new
+            {
+                ProductId = item.Key,
+                Quantity = item.Value,
+                UnitPrice = products[item.Key].Price
+            }));
+        return Hash(payload);
+    }
+
+    private static bool IsValidPostalCode(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        System.Text.RegularExpressions.Regex.IsMatch(value.Trim(), @"^\d{5}-?\d{3}$");
+
+    private static string NormalizePostalCode(string value) =>
+        new string(value.Where(char.IsDigit).ToArray());
+
     private static ApiOrderError? ValidateCustomerAndShipping(CreateApiOrderRequest request)
     {
-        if (!ShippingCosts.ContainsKey(request.ShippingMethod.Trim().ToUpperInvariant()))
+        request.ShippingMethod = request.ShippingMethod.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(request.ShippingMethod))
         {
             return ApiOrderError.InvalidShippingMethod();
         }
@@ -510,13 +668,16 @@ public sealed class ApiOrdersController : ControllerBase
             return ApiOrderError.MissingDeliveryAddress();
         }
 
-        if (requiresDeliveryAddress &&
-            !System.Text.RegularExpressions.Regex.IsMatch(request.ZipCode!.Trim(), @"^\d{5}-?\d{3}$"))
+        if (requiresDeliveryAddress && !IsValidPostalCode(request.ZipCode))
         {
             return ApiOrderError.InvalidZipCode();
         }
 
-        request.ShippingMethod = request.ShippingMethod.Trim().ToUpperInvariant();
+        if (requiresDeliveryAddress && string.IsNullOrWhiteSpace(request.ShippingServiceId))
+        {
+            return ApiOrderError.InvalidShippingMethod();
+        }
+
         return null;
     }
 
@@ -560,6 +721,12 @@ public sealed class CreateApiOrderRequest
 
     [Required]
     public string ShippingMethod { get; set; } = string.Empty;
+
+    [StringLength(80)]
+    public string? ShippingQuoteId { get; set; }
+
+    [StringLength(80)]
+    public string? ShippingServiceId { get; set; }
 }
 
 public sealed class OrderRecoveryRequest
@@ -588,6 +755,10 @@ public sealed class ApiOrderResponse
     public string Status { get; init; } = string.Empty;
     public DateTime CreatedAt { get; init; }
     public string ShippingMethod { get; init; } = string.Empty;
+    public string? ShippingProvider { get; init; }
+    public string? ShippingServiceId { get; init; }
+    public string? ShippingServiceName { get; init; }
+    public int? ShippingDeliveryTime { get; init; }
     public decimal Subtotal { get; init; }
     public decimal ShippingCost { get; init; }
     public decimal Total { get; init; }
@@ -599,10 +770,61 @@ public sealed class ApiOrderResponse
 public sealed class ApiOrderQuoteResponse
 {
     public string ShippingMethod { get; init; } = string.Empty;
+    public bool IsRealQuote { get; init; }
+    public bool CanCreateOrder { get; init; }
+    public string QuoteStatus { get; init; } = string.Empty;
+    public string? QuoteId { get; init; }
+    public DateTimeOffset? ExpiresAtUtc { get; init; }
     public decimal Subtotal { get; init; }
     public decimal ShippingCost { get; init; }
     public decimal Total { get; init; }
+    public IReadOnlyList<ApiShippingOption> Options { get; init; } = [];
+
+    public static ApiOrderQuoteResponse Pickup(decimal subtotal) => new()
+    {
+        ShippingMethod = "RETIRADA",
+        IsRealQuote = false,
+        CanCreateOrder = true,
+        QuoteStatus = "pickup",
+        Subtotal = subtotal,
+        ShippingCost = 0m,
+        Total = subtotal,
+        Options = [new ApiShippingOption("RETIRADA", "Retirada", "Angel Acessórios", 0m, null)]
+    };
+
+    public static ApiOrderQuoteResponse Provisional(decimal subtotal, IReadOnlyList<ApiShippingOption> options) => new()
+    {
+        ShippingMethod = "PROVISIONAL",
+        IsRealQuote = false,
+        CanCreateOrder = false,
+        QuoteStatus = "real_quotes_disabled",
+        Subtotal = subtotal,
+        Options = options
+    };
+
+    public static ApiOrderQuoteResponse Real(
+        decimal subtotal,
+        string quoteId,
+        DateTimeOffset expiresAtUtc,
+        IReadOnlyList<ApiShippingOption> options) => new()
+    {
+        ShippingMethod = "MELHOR_ENVIO",
+        IsRealQuote = true,
+        CanCreateOrder = true,
+        QuoteStatus = "ready",
+        QuoteId = quoteId,
+        ExpiresAtUtc = expiresAtUtc,
+        Subtotal = subtotal,
+        Options = options
+    };
 }
+
+public sealed record ApiShippingOption(
+    string ServiceId,
+    string ServiceName,
+    string ProviderName,
+    decimal Price,
+    int? DeliveryTimeDays);
 
 public sealed class ApiOrderItemResponse
 {
@@ -649,6 +871,30 @@ public sealed class ApiOrderError
         Message = "Informe um CEP brasileiro válido com 8 dígitos."
     };
 
+    public static ApiOrderError RealShippingDisabled() => new()
+    {
+        Code = "real_shipping_disabled",
+        Message = "O frete real ainda não está habilitado para pedidos de entrega."
+    };
+
+    public static ApiOrderError QuoteExpired() => new()
+    {
+        Code = "shipping_quote_expired",
+        Message = "A cotação de frete expirou ou não corresponde mais ao carrinho. Calcule novamente."
+    };
+
+    public static ApiOrderError InvalidQuote() => new()
+    {
+        Code = "shipping_quote_invalid",
+        Message = "A opção de frete selecionada não é válida para esta cotação."
+    };
+
+    public static ApiOrderError FromShippingException(ShippingQuoteException exception) => new()
+    {
+        Code = exception.Code,
+        Message = exception.Message
+    };
+
     public static ApiOrderError InvalidIdempotencyKey() => new()
     {
         Code = "invalid_idempotency_key",
@@ -666,6 +912,33 @@ public sealed class ApiOrderError
         Code = code,
         Message = message
     };
+}
+
+public sealed class ShippingQuoteSnapshot
+{
+    public string QuoteId { get; set; } = string.Empty;
+    public string DestinationPostalCode { get; set; } = string.Empty;
+    public string CartFingerprint { get; set; } = string.Empty;
+    public DateTimeOffset ExpiresAtUtc { get; set; }
+    public List<ApiShippingOption> Options { get; set; } = [];
+}
+
+public sealed record ShippingSelection(
+    string ServiceId,
+    string ServiceName,
+    string ProviderName,
+    decimal Price,
+    int DeliveryTimeDays,
+    DateTimeOffset? QuotedAtUtc);
+
+public sealed record ShippingSelectionResult(
+    bool Success,
+    ShippingSelection? Option,
+    ApiOrderError? Error,
+    int StatusCode)
+{
+    public static ShippingSelectionResult Ok(ShippingSelection option) => new(true, option, null, 200);
+    public static ShippingSelectionResult Fail(ApiOrderError error, int statusCode) => new(false, null, error, statusCode);
 }
 
 public sealed class ApiOrderItemError

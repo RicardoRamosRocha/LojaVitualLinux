@@ -9,7 +9,7 @@ import type { CartResponse } from "@/lib/cart-types";
 import { emptyCart } from "@/lib/cart-types";
 import { getOrderQuote, OrderApiError, OrderSubmissionUncertainError, prepareOrder } from "@/lib/order-client";
 import { fetchAuthorizedOrders } from "@/lib/order-tracking-client";
-import type { CreateOrderRequest, OrderQuoteResponse, OrderResponse, ShippingMethod } from "@/lib/order-types";
+import type { CreateOrderRequest, OrderQuoteResponse, OrderResponse, ShippingMethod, ShippingOption } from "@/lib/order-types";
 import { formatCep, lookupCep } from "@/lib/cep";
 import { validateCheckout, type CheckoutValidationErrors } from "@/lib/checkout-validation";
 
@@ -58,6 +58,8 @@ function formatOrderError(error: unknown) {
     if (error.code === "empty_cart") return "Seu carrinho está vazio.";
     if (error.code === "missing_delivery_address") return "Preencha o endereço e o CEP para continuar.";
     if (error.code === "invalid_zip_code") return "Informe um CEP brasileiro válido com 8 dígitos.";
+    if (error.code === "real_shipping_disabled") return "O frete real ainda não está habilitado para entregas.";
+    if (error.code === "shipping_quote_expired" || error.code === "shipping_quote_invalid") return "A cotação expirou ou mudou. Calcule o frete novamente.";
     if (error.code === "invalid_shipping_method") return "Escolha uma modalidade de entrega válida.";
     return error.message;
   }
@@ -121,16 +123,25 @@ export function CheckoutView() {
   useEffect(() => {
     if (loading || cartError || cart.items.length === 0) return;
 
-    getOrderQuote(form.shippingMethod)
+    if (requiresAddress && !/^\d{5}-?\d{3}$/.test(form.zipCode.trim())) {
+      return;
+    }
+
+    getOrderQuote(requiresAddress ? "ALL" : "RETIRADA", requiresAddress ? form.zipCode : undefined)
       .then((result) => {
         setQuote(result);
         setQuoteError(null);
+        if (requiresAddress && result.options.length > 0) {
+          setForm((current) => result.options.some((option) => option.serviceId === current.shippingMethod)
+            ? current
+            : { ...current, shippingMethod: result.options[0].serviceId });
+        }
       })
       .catch((caughtError) => {
         setQuote(null);
         setQuoteError(caughtError instanceof Error ? caughtError.message : "Não foi possível calcular o frete.");
       });
-  }, [cart.items.length, cart.subtotal, cartError, form.shippingMethod, loading]);
+  }, [cart.items.length, cart.subtotal, cartError, form.zipCode, loading, requiresAddress]);
 
   useEffect(() => {
     const digits = form.zipCode.replace(/\D/g, "");
@@ -138,48 +149,51 @@ export function CheckoutView() {
     const controller = new AbortController();
 
     if (!requiresAddress || digits.length !== 8) {
-      setCepStatus("idle");
       return () => controller.abort();
     }
 
-    setCepStatus("loading");
-    lookupCep(digits, controller.signal)
-      .then((address) => {
-        if (requestId !== cepRequest.current) return;
-        setForm((current) => ({
-          ...current,
-          address: address.street || current.address,
-          neighborhood: address.neighborhood || current.neighborhood,
-          city: address.city || current.city,
-          state: address.state || current.state,
-        }));
-        setFieldErrors((current) => {
-          const next = { ...current };
-          delete next.cep;
-          delete next.address;
-          delete next.neighborhood;
-          delete next.city;
-          delete next.state;
-          return next;
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      setCepStatus("loading");
+      lookupCep(digits, controller.signal)
+        .then((address) => {
+          if (requestId !== cepRequest.current) return;
+          setForm((current) => ({
+            ...current,
+            address: address.street || current.address,
+            neighborhood: address.neighborhood || current.neighborhood,
+            city: address.city || current.city,
+            state: address.state || current.state,
+          }));
+          setFieldErrors((current) => {
+            const next = { ...current };
+            delete next.cep;
+            delete next.address;
+            delete next.neighborhood;
+            delete next.city;
+            delete next.state;
+            return next;
+          });
+          setCepStatus("success");
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || requestId !== cepRequest.current) return;
+          setCepStatus("error");
+          setFieldErrors((current) => ({
+            ...current,
+            cep: error instanceof Error ? error.message : "Não foi possível consultar o CEP. Preencha o endereço manualmente.",
+          }));
         });
-        setCepStatus("success");
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted || requestId !== cepRequest.current) return;
-        setCepStatus("error");
-        setFieldErrors((current) => ({
-          ...current,
-          cep: error instanceof Error ? error.message : "Não foi possível consultar o CEP. Preencha o endereço manualmente.",
-        }));
-      });
+    });
 
     return () => controller.abort();
   }, [form.zipCode, requiresAddress]);
 
   function updateField(field: keyof CheckoutForm, value: string) {
-    if (field === "shippingMethod") {
+    if (field === "zipCode") {
       setQuote(null);
       setQuoteError(null);
+      setCepStatus("idle");
     }
     setFieldErrors((current) => {
       if (!current[field]) return current;
@@ -197,6 +211,15 @@ export function CheckoutView() {
     return Object.keys(errors).length === 0;
   }
 
+  const selectedShippingOption: ShippingOption | undefined = quote?.options.find(
+    (option) => option.serviceId === form.shippingMethod,
+  );
+  const selectedShippingCost = requiresAddress
+    ? selectedShippingOption?.price ?? 0
+    : 0;
+  const selectedShippingDays = requiresAddress ? selectedShippingOption?.deliveryTimeDays : null;
+  const canCreateOrder = !requiresAddress || Boolean(quote?.canCreateOrder && quote.quoteId && selectedShippingOption);
+
   function retryCartLoad() {
     setCartError(null);
     setLoading(true);
@@ -211,8 +234,17 @@ export function CheckoutView() {
       return;
     }
     if (!csrfToken) { setOrderError("Não foi possível validar sua sessão. Recarregue a página e tente novamente."); return; }
-    if (!quote || quote.shippingMethod !== form.shippingMethod) {
-      setOrderError("Aguarde o cálculo do frete antes de finalizar o pedido.");
+    if (!quote || (requiresAddress && !selectedShippingOption)) {
+      if (requiresAddress && !quote?.canCreateOrder) {
+        setOrderError("O frete real ainda não está disponível. Escolha Retirada ou tente novamente mais tarde.");
+      } else {
+        setOrderError("Aguarde o cálculo do frete antes de finalizar o pedido.");
+      }
+      return;
+    }
+
+    if (!canCreateOrder) {
+      setOrderError("Escolha uma opção de frete válida antes de continuar.");
       return;
     }
 
@@ -242,6 +274,8 @@ export function CheckoutView() {
         neighborhood: requiresAddress ? form.neighborhood.trim() : undefined,
         city: requiresAddress ? form.city.trim() : undefined,
         state: requiresAddress ? form.state.trim().toUpperCase() : undefined,
+        shippingQuoteId: requiresAddress ? quote.quoteId : undefined,
+        shippingServiceId: requiresAddress ? selectedShippingOption?.serviceId : "RETIRADA",
         shippingMethod: form.shippingMethod,
       };
 
@@ -300,7 +334,7 @@ export function CheckoutView() {
               <label htmlFor="checkout-name">Nome completo<input id="checkout-name" required minLength={2} maxLength={120} value={form.customerName} onChange={(event) => updateField("customerName", event.target.value)} autoComplete="name" aria-invalid={Boolean(fieldErrors.customerName)} aria-describedby={fieldErrors.customerName ? "checkout-name-error" : undefined} />{fieldErrors.customerName && <span id="checkout-name-error" className="checkout-field-error" role="alert">{fieldErrors.customerName}</span>}</label>
               <label htmlFor="checkout-email">E-mail<input id="checkout-email" required type="email" maxLength={180} value={form.email} onChange={(event) => updateField("email", event.target.value)} autoComplete="email" inputMode="email" aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "checkout-email-error" : undefined} />{fieldErrors.email && <span id="checkout-email-error" className="checkout-field-error" role="alert">{fieldErrors.email}</span>}</label>
               <label htmlFor="checkout-phone">Telefone<input id="checkout-phone" required type="tel" minLength={8} maxLength={30} value={form.phone} onChange={(event) => updateField("phone", event.target.value)} autoComplete="tel" inputMode="tel" aria-invalid={Boolean(fieldErrors.phone)} aria-describedby={fieldErrors.phone ? "checkout-phone-error" : undefined} />{fieldErrors.phone && <span id="checkout-phone-error" className="checkout-field-error" role="alert">{fieldErrors.phone}</span>}</label>
-              <label>Modalidade<select value={form.shippingMethod} onChange={(event) => updateField("shippingMethod", event.target.value as ShippingMethod)}><option value="PAC">PAC</option><option value="SEDEX">SEDEX</option><option value="RETIRADA">Retirada</option></select></label>
+              <label htmlFor="checkout-shipping">Modalidade<select id="checkout-shipping" value={form.shippingMethod} onChange={(event) => updateField("shippingMethod", event.target.value as ShippingMethod)}><option value="RETIRADA">Retirada gratuita</option>{!quote && <option value="PAC">Entrega — informe o CEP</option>}{quote?.options.filter((option) => option.serviceId !== "RETIRADA").map((option) => <option key={option.serviceId} value={option.serviceId}>{option.providerName ? `${option.providerName} — ` : ""}{option.serviceName}{option.deliveryTimeDays ? ` — ${option.deliveryTimeDays} dias úteis` : ""}</option>)}</select></label>
               <label htmlFor="checkout-cep">CEP<input id="checkout-cep" required={requiresAddress} maxLength={9} value={form.zipCode} onChange={(event) => updateField("zipCode", event.target.value)} autoComplete="postal-code" inputMode="numeric" aria-invalid={Boolean(fieldErrors.cep)} aria-describedby={fieldErrors.cep ? "checkout-cep-error" : "checkout-cep-status"} />{cepStatus === "loading" && <span id="checkout-cep-status" className="checkout-field-note" role="status">Consultando endereço…</span>}{cepStatus === "success" && <span id="checkout-cep-status" className="checkout-field-note" role="status">Endereço preenchido. Confira e corrija se necessário.</span>}{fieldErrors.cep && <span id="checkout-cep-error" className="checkout-field-error" role="alert">{fieldErrors.cep}</span>}</label>
               <label htmlFor="checkout-address">Endereço<input id="checkout-address" required={requiresAddress} maxLength={120} value={form.address} onChange={(event) => updateField("address", event.target.value)} autoComplete="address-line1" aria-invalid={Boolean(fieldErrors.address)} aria-describedby={fieldErrors.address ? "checkout-address-error" : undefined} />{fieldErrors.address && <span id="checkout-address-error" className="checkout-field-error" role="alert">{fieldErrors.address}</span>}</label>
               <label htmlFor="checkout-number">Número<input id="checkout-number" required={requiresAddress} maxLength={20} value={form.number} onChange={(event) => updateField("number", event.target.value)} inputMode="numeric" autoComplete="off" aria-invalid={Boolean(fieldErrors.number)} aria-describedby={fieldErrors.number ? "checkout-number-error" : undefined} />{fieldErrors.number && <span id="checkout-number-error" className="checkout-field-error" role="alert">{fieldErrors.number}</span>}</label>
@@ -309,8 +343,8 @@ export function CheckoutView() {
               <label htmlFor="checkout-city">Cidade<input id="checkout-city" required={requiresAddress} maxLength={80} value={form.city} onChange={(event) => updateField("city", event.target.value)} autoComplete="address-level2" aria-invalid={Boolean(fieldErrors.city)} aria-describedby={fieldErrors.city ? "checkout-city-error" : undefined} />{fieldErrors.city && <span id="checkout-city-error" className="checkout-field-error" role="alert">{fieldErrors.city}</span>}</label>
               <label htmlFor="checkout-state">Estado<input id="checkout-state" required={requiresAddress} maxLength={2} value={form.state} onChange={(event) => updateField("state", event.target.value.toUpperCase())} autoComplete="address-level1" aria-invalid={Boolean(fieldErrors.state)} aria-describedby={fieldErrors.state ? "checkout-state-error" : undefined} />{fieldErrors.state && <span id="checkout-state-error" className="checkout-field-error" role="alert">{fieldErrors.state}</span>}</label>
             </div>
-            <p className="checkout-hint">O valor exibido usa a tabela comercial atual da loja e é validado pelo servidor. O pedido ficará pendente; nenhum pagamento será iniciado.</p>
-            <button className="cart-button" type="submit" disabled={submitting || !quote}>{submitting ? "Abrindo Mercado Pago..." : "Pagar com Mercado Pago"}</button>
+            <p className="checkout-hint">{requiresAddress ? (quote?.isRealQuote ? `Frete calculado pelo Melhor Envio. Prazo estimado: ${selectedShippingDays ? `${selectedShippingDays} dias úteis` : "consulte a opção"}.` : "O frete real está desabilitado para este ambiente. Retirada continua disponível.") : "Retirada gratuita no endereço da loja."} O pedido ficará pendente; nenhum pagamento será iniciado.</p>
+            <button className="cart-button" type="submit" disabled={submitting || !canCreateOrder}>{submitting ? "Abrindo Mercado Pago..." : "Pagar com Mercado Pago"}</button>
             <p className="cart-note">{submitting ? "Não feche esta página. O mesmo envio será reutilizado se for necessário tentar novamente." : "Você poderá revisar o status do pedido após o envio."}</p>
           </form>
           <aside className="checkout-summary">
@@ -323,8 +357,8 @@ export function CheckoutView() {
               })}
             </div>
             <div className="checkout-summary__line"><span>Subtotal</span><strong>{currency.format(quote?.subtotal ?? cart.subtotal)}</strong></div>
-            <div className="checkout-summary__line"><span>Frete (tabela atual)</span><strong>{quote ? (quote.shippingCost === 0 ? "Grátis" : currency.format(quote.shippingCost)) : (quoteError ?? "Calculando...")}</strong></div>
-            <div className="checkout-summary__total"><span>Total</span><strong>{quote ? currency.format(quote.total) : "Indisponível"}</strong></div>
+            <div className="checkout-summary__line"><span>Frete</span><strong>{quote ? (selectedShippingCost === 0 ? "Grátis" : currency.format(selectedShippingCost)) : (quoteError ?? "Informe o CEP")}</strong></div>
+            <div className="checkout-summary__total"><span>Total</span><strong>{quote ? currency.format(quote.subtotal + selectedShippingCost) : "Indisponível"}</strong></div>
           </aside>
         </div>
       )}

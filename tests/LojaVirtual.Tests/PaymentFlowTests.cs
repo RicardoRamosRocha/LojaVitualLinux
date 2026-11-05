@@ -188,6 +188,9 @@ public sealed class PaymentFlowTests
         await connection.OpenAsync();
         await using var context = CreateContext(connection);
         var order = SeedOrder(context, stock: 5, quantity: 2);
+        order.ShippingMethod = "PAC";
+        order.Total = 35m;
+        await context.SaveChangesAsync();
         var existingAttempt = await context.OrderPaymentAttempts.SingleAsync();
         context.OrderPaymentAttempts.Remove(existingAttempt);
         await context.SaveChangesAsync();
@@ -212,6 +215,8 @@ public sealed class PaymentFlowTests
         var body = Assert.IsType<LojaVirtual.Controllers.ApiOrderResponse>(response.Value);
 
         Assert.Equal(order.Id, body.Id);
+        Assert.Equal("PAC", body.ShippingMethod);
+        Assert.Equal(35m, body.Total);
         Assert.Equal("https://example.com/counting", body.CheckoutUrl);
         Assert.Equal(1, mercadoPago.CreateCalls);
     }

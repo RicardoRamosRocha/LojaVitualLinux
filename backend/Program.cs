@@ -131,6 +131,11 @@ builder.Services.AddHealthChecks();
 builder.Services.AddHttpClient<
     IMercadoPagoService,
     MercadoPagoService>();
+builder.Services.Configure<ShippingOptions>(builder.Configuration.GetSection("Shipping"));
+builder.Services.AddHttpClient<IShippingQuoteService, MelhorEnvioQuoteService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(8);
+});
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
 builder.Services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(client =>
 {

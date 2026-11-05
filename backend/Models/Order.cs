@@ -25,6 +25,20 @@ namespace LojaVirtual.Models
 
         public string ShippingMethod { get; set; } = "";
 
+        public decimal? ShippingCost { get; set; }
+
+        public string? ShippingProvider { get; set; }
+
+        public string? ShippingServiceId { get; set; }
+
+        public string? ShippingServiceName { get; set; }
+
+        public int? ShippingDeliveryTime { get; set; }
+
+        public DateTimeOffset? ShippingQuotedAtUtc { get; set; }
+
+        public string? ShippingQuoteId { get; set; }
+
         public string? IdempotencyKey { get; set; }
 
         public string? IdempotencyFingerprint { get; set; }

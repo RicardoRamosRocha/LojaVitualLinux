@@ -52,6 +52,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionK
             .HasMaxLength(32)
             .IsRequired();
 
+        modelBuilder.Entity<Order>()
+            .Property(order => order.ShippingCost)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<Order>()
+            .Property(order => order.ShippingQuoteId)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<Order>()
+            .Property(order => order.ShippingServiceId)
+            .HasMaxLength(80);
+
         modelBuilder.Entity<OrderStockReservation>()
             .HasOne(reservation => reservation.Order)
             .WithMany(order => order.StockReservations)
