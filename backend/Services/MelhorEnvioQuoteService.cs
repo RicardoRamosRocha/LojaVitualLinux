@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 
 namespace LojaVirtual.Services;
 
@@ -12,6 +13,7 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
     private readonly HttpClient _httpClient;
     private readonly ShippingOptions _options;
     private readonly ILogger<MelhorEnvioQuoteService> _logger;
+    private readonly IMelhorEnvioTokenStore? _tokenStore;
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
     private string? _accessToken;
     private string? _refreshToken;
@@ -19,11 +21,13 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
     public MelhorEnvioQuoteService(
         HttpClient httpClient,
         IOptions<ShippingOptions> options,
-        ILogger<MelhorEnvioQuoteService> logger)
+        ILogger<MelhorEnvioQuoteService> logger,
+        IMelhorEnvioTokenStore? tokenStore = null)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _logger = logger;
+        _tokenStore = tokenStore;
         _accessToken = NullIfWhiteSpace(_options.AccessToken);
         _refreshToken = NullIfWhiteSpace(_options.RefreshToken);
     }
@@ -154,8 +158,23 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
         await _tokenLock.WaitAsync(cancellationToken);
         try
         {
+            var persisted = _tokenStore is null
+                ? null
+                : await _tokenStore.GetAsync(cancellationToken);
+            if (!forceRefresh && persisted is not null)
+            {
+                _accessToken = persisted.AccessToken;
+                _refreshToken = persisted.RefreshToken;
+                if (persisted.ExpiresAtUtc is null || persisted.ExpiresAtUtc > DateTimeOffset.UtcNow.AddMinutes(1))
+                {
+                    return persisted.AccessToken;
+                }
+            }
+
             if (!forceRefresh && !string.IsNullOrWhiteSpace(_accessToken)) return _accessToken;
-            if (string.IsNullOrWhiteSpace(_refreshToken))
+
+            var refreshToken = persisted?.RefreshToken ?? _refreshToken ?? NullIfWhiteSpace(_options.RefreshToken);
+            if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 throw new ShippingQuoteException("shipping_credentials_missing", "As credenciais do Melhor Envio não estão configuradas.", 503);
             }
@@ -171,7 +190,7 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
                     ["grant_type"] = "refresh_token",
                     ["client_id"] = _options.ClientId,
                     ["client_secret"] = _options.ClientSecret,
-                    ["refresh_token"] = _refreshToken
+                    ["refresh_token"] = refreshToken
                 })
             };
             request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
@@ -188,7 +207,28 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
             }
 
             _accessToken = token.AccessToken;
-            _refreshToken = NullIfWhiteSpace(token.RefreshToken) ?? _refreshToken;
+            _refreshToken = NullIfWhiteSpace(token.RefreshToken) ?? refreshToken;
+            var refreshedToken = new MelhorEnvioToken(
+                _accessToken,
+                _refreshToken,
+                token.ExpiresIn is > 0
+                    ? DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn.Value)
+                    : null);
+            if (_tokenStore is not null)
+            {
+                try
+                {
+                    await _tokenStore.SaveAsync(refreshedToken, cancellationToken);
+                }
+                catch (Exception exception) when (exception is DbUpdateException or InvalidOperationException)
+                {
+                    throw new ShippingQuoteException(
+                        "shipping_token_storage",
+                        "Não foi possível armazenar com segurança as credenciais do frete.",
+                        503,
+                        exception);
+                }
+            }
             return _accessToken;
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
@@ -259,5 +299,8 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
 
         [JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; set; }
+
+        [JsonPropertyName("expires_in")]
+        public int? ExpiresIn { get; set; }
     }
 }

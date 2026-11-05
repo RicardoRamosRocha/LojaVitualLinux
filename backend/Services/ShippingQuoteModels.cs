@@ -10,6 +10,9 @@ public sealed class ShippingOptions
     public string ClientId { get; set; } = string.Empty;
     public string ClientSecret { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
+    public string AuthorizationUrl { get; set; } = string.Empty;
+    public string OAuthScope { get; set; } = string.Empty;
+    public int OAuthStateLifetimeMinutes { get; set; } = 10;
     public string UserAgent { get; set; } = "Angel Acessórios (contato técnico)";
     public int QuoteTtlMinutes { get; set; } = 10;
     public string Services { get; set; } = string.Empty;

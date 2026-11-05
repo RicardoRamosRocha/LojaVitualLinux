@@ -9,7 +9,19 @@ Não incluir tokens, client secret ou códigos de autorização neste repositór
 2. Usar o `client_id`, `client_secret` e `redirect_uri` configurados na aplicação.
 3. Solicitar autorização no fluxo OAuth2 oficial e obter o `authorization_code` no callback.
 4. Trocar o código por `access_token` e `refresh_token` no endpoint OAuth oficial.
-5. Configurar os tokens exclusivamente como variáveis protegidas no Render.
+5. Configurar client ID, client secret, redirect URI e escopo exclusivamente como variáveis protegidas no Render.
+
+O início da autorização é protegido pela política administrativa em:
+
+`POST /api/integrations/melhorenvio/authorize`
+
+O callback público é:
+
+`GET /api/integrations/melhorenvio/callback`
+
+Para homologação, registrar exatamente:
+
+`https://angel-acessorios-api-hml.onrender.com/api/integrations/melhorenvio/callback`
 
 O serviço desta aplicação usa o `access_token` para consultar:
 
@@ -19,9 +31,10 @@ Quando a API responder 401, o backend tenta renovar o token com `refresh_token` 
 
 `POST {Shipping:BaseUrl}/oauth/token`
 
-O token renovado permanece somente em memória durante a execução do processo. Se o
-provedor rotacionar o refresh token, o novo valor precisa ser persistido no mecanismo
-de segredos do ambiente antes de reinícios ou novos deploys.
+O state e os tokens são persistidos na tabela de cache distribuído já existente,
+protegidos pelo Data Protection da aplicação. O consumo do state é transacional e
+remove o registro antes da troca do código, impedindo reutilização. O refresh token
+renovado é persistido junto com o novo access token e não é enviado ao navegador.
 
 ## Variáveis protegidas
 

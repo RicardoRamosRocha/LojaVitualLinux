@@ -136,6 +136,8 @@ builder.Services.AddHttpClient<IShippingQuoteService, MelhorEnvioQuoteService>(c
 {
     client.Timeout = TimeSpan.FromSeconds(8);
 });
+builder.Services.AddScoped<IMelhorEnvioTokenStore, MelhorEnvioTokenStore>();
+builder.Services.AddScoped<IMelhorEnvioOAuthService, MelhorEnvioOAuthService>();
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
 builder.Services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(client =>
 {
