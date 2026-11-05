@@ -18,6 +18,17 @@ public sealed class MelhorEnvioDiagnosticsController : ControllerBase
     [EnableRateLimiting("melhorenvio-diagnostics")]
     public async Task<ActionResult<MelhorEnvioConnectivityDiagnostic>> Connectivity(CancellationToken cancellationToken)
     {
-        return Ok(await _diagnostics.CheckAsync(cancellationToken));
+        try
+        {
+            return Ok(await _diagnostics.CheckAsync(cancellationToken));
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Ok(new MelhorEnvioConnectivityDiagnostic("timeout", null, 0, null));
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Ok(new MelhorEnvioConnectivityDiagnostic("diagnostic_error", null, 0, null));
+        }
     }
 }

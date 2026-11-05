@@ -193,6 +193,21 @@ public sealed class MelhorEnvioOAuthServiceTests
         Assert.DoesNotContain("provider response must not be logged", logText);
     }
 
+    [Fact]
+    public async Task Connectivity_controller_returns_sanitized_result_for_unexpected_probe_failure()
+    {
+        var controller = new MelhorEnvioDiagnosticsController(new ThrowingConnectivityDiagnostics());
+
+        var result = await controller.Connectivity(CancellationToken.None);
+        var response = Assert.IsType<OkObjectResult>(result.Result);
+        var diagnostic = Assert.IsType<MelhorEnvioConnectivityDiagnostic>(response.Value);
+
+        Assert.Equal("diagnostic_error", diagnostic.Category);
+        Assert.Null(diagnostic.HttpStatusCode);
+        Assert.Equal(0, diagnostic.DurationMilliseconds);
+        Assert.Null(diagnostic.TlsVersion);
+    }
+
     private static MelhorEnvioOAuthService CreateService(
         TestDatabase database,
         HttpMessageHandler handler)
@@ -264,6 +279,12 @@ public sealed class MelhorEnvioOAuthServiceTests
 
         public Task ExchangeAuthorizationCodeAsync(string state, string code, CancellationToken cancellationToken = default) =>
             throw exception;
+    }
+
+    private sealed class ThrowingConnectivityDiagnostics : IMelhorEnvioConnectivityDiagnostics
+    {
+        public Task<MelhorEnvioConnectivityDiagnostic> CheckAsync(CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("diagnostic internals must not reach the response");
     }
 
     private sealed class RecordingLogger<T> : ILogger<T>

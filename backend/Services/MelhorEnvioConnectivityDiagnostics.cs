@@ -57,6 +57,10 @@ public sealed class MelhorEnvioConnectivityDiagnostics : IMelhorEnvioConnectivit
         {
             return Complete("dns", null, stopwatch, tlsVersion);
         }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Complete("diagnostic_error", null, stopwatch, tlsVersion);
+        }
 
         try
         {
@@ -87,6 +91,10 @@ public sealed class MelhorEnvioConnectivityDiagnostics : IMelhorEnvioConnectivit
         {
             return Complete("tls", null, stopwatch, tlsVersion);
         }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Complete("diagnostic_error", null, stopwatch, tlsVersion);
+        }
 
         try
         {
@@ -103,6 +111,10 @@ public sealed class MelhorEnvioConnectivityDiagnostics : IMelhorEnvioConnectivit
         catch (HttpRequestException exception)
         {
             return Complete(ClassifyHttpFailure(exception), null, stopwatch, tlsVersion);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Complete("diagnostic_error", null, stopwatch, tlsVersion);
         }
     }
 
