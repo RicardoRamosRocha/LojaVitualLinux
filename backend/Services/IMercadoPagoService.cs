@@ -12,6 +12,10 @@ public interface IMercadoPagoService
         string? idempotencyKey = null,
         CancellationToken cancellationToken = default);
     Task<MercadoPagoPaymentResult?> GetPaymentAsync(string paymentId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MercadoPagoPaymentResult>> SearchPaymentsByExternalReferenceAsync(
+        string externalReference,
+        CancellationToken cancellationToken = default);
+    Task CancelPaymentAsync(string paymentId, CancellationToken cancellationToken = default);
     bool IsValidWebhookSignature(string? signature, string? requestId, string? dataId);
     Task<string> CriarPreferenciaAsync(Order order, string? idempotencyKey = null);
 }

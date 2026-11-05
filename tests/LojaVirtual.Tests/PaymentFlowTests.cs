@@ -447,6 +447,9 @@ public sealed class PaymentFlowTests
             Task.FromResult(new MercadoPagoPreferenceResult("pref-1", "https://example.com/checkout"));
         public Task<MercadoPagoPaymentResult?> GetPaymentAsync(string paymentId, CancellationToken cancellationToken = default) =>
             Task.FromResult<MercadoPagoPaymentResult?>(null);
+        public Task<IReadOnlyList<MercadoPagoPaymentResult>> SearchPaymentsByExternalReferenceAsync(string externalReference, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MercadoPagoPaymentResult>>([]);
+        public Task CancelPaymentAsync(string paymentId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public bool IsValidWebhookSignature(string? signature, string? requestId, string? dataId) => true;
         public Task<string> CriarPreferenciaAsync(Order order, string? idempotencyKey = null) => Task.FromResult("https://example.com/checkout");
     }

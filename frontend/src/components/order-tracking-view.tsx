@@ -19,6 +19,7 @@ export function OrderTrackingView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [showCancelled, setShowCancelled] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -56,7 +57,6 @@ export function OrderTrackingView() {
 
   useEffect(() => {
     if (recoveryLinkHandled.current) return;
-
     const params = new URLSearchParams(window.location.search);
     const orderId = Number(params.get("recoveryOrderId"));
     const token = params.get("recoveryToken");
@@ -108,6 +108,9 @@ export function OrderTrackingView() {
     } finally { setRecoveryLoading(false); }
   }
 
+  const visibleOrders = showCancelled ? orders : orders.filter((order) => order.status !== "Cancelado");
+  const cancelledCount = orders.filter((order) => order.status === "Cancelado").length;
+
   return (
     <section className="orders-shell">
       <div className="orders-heading">
@@ -129,8 +132,9 @@ export function OrderTrackingView() {
         {recoveryError && <p className="order-note" role="alert">{recoveryError}</p>}
         <button className="back-link" type="button" onClick={() => setRecoveryOpen(false)}>Fechar</button>
       </div>}
-      {!loading && !error && !unauthorized && orders.length === 0 && <div className="cart-message"><span className="catalog-message__eyebrow">Ainda não há pedidos aqui</span><h2>Seus pedidos autorizados aparecerão neste espaço.</h2><p>Finalize uma compra para acompanhar seus itens com segurança neste dispositivo.</p><Link className="hero-cta" href="/#colecao">Continuar comprando <span>↗</span></Link></div>}
-      {!loading && !error && !unauthorized && orders.length > 0 && <div className="orders-list">{orders.map((order) => <article className="order-card" key={order.id}><div className="order-card__meta"><p className="eyebrow">Pedido #{order.id}</p><span>{formatDate(order.createdAt)}</span></div><div className="order-card__status"><span>{order.status || "Status não informado"}</span><strong>{currency.format(order.total)}</strong></div><Link className="cart-button cart-button--link" href={`/pedidos/${order.id}`}>Ver detalhes</Link></article>)}</div>}
+      {!loading && !error && !unauthorized && orders.length > 0 && <div className="orders-history-toggle"><span>{showCancelled ? "Histórico completo" : "Pedidos ativos"}</span>{cancelledCount > 0 && <button className="back-link" type="button" onClick={() => setShowCancelled((current) => !current)}>{showCancelled ? "Ocultar cancelados" : `Ver ${cancelledCount} cancelado${cancelledCount === 1 ? "" : "s"}`}</button>}</div>}
+      {!loading && !error && !unauthorized && visibleOrders.length === 0 && <div className="cart-message"><span className="catalog-message__eyebrow">{orders.length > 0 ? "Nenhum pedido ativo" : "Ainda não há pedidos aqui"}</span><h2>{orders.length > 0 ? "Seus pedidos cancelados ficam no histórico." : "Seus pedidos autorizados aparecerão neste espaço."}</h2><p>{orders.length > 0 ? "Abra o histórico para consultar os detalhes preservados." : "Finalize uma compra para acompanhar seus itens com segurança neste dispositivo."}</p>{orders.length > 0 ? <button className="hero-cta" type="button" onClick={() => setShowCancelled(true)}>Ver histórico <span>↗</span></button> : <Link className="hero-cta" href="/#colecao">Continuar comprando <span>↗</span></Link>}</div>}
+      {!loading && !error && !unauthorized && visibleOrders.length > 0 && <div className="orders-list">{visibleOrders.map((order) => <article className="order-card" key={order.id}><div className="order-card__meta"><p className="eyebrow">Pedido #{order.id}</p><span>{formatDate(order.createdAt)}</span></div><div className="order-card__status"><span>{order.status || "Status não informado"}</span><strong>{currency.format(order.total)}</strong></div><Link className="cart-button cart-button--link" href={`/pedidos/${order.id}`}>Ver detalhes</Link></article>)}</div>}
     </section>
   );
 }

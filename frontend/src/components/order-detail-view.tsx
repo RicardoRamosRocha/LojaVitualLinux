@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { OrderResponse } from "@/lib/order-types";
-import { fetchAuthorizedOrders, OrderTrackingApiError } from "@/lib/order-tracking-client";
+import { fetchAuthorizedOrders, cancelOrder, OrderTrackingApiError } from "@/lib/order-tracking-client";
 import { fetchCart } from "@/lib/cart-client";
 import { resumeOrderPayment } from "@/lib/order-client";
 
@@ -17,22 +17,14 @@ function formatDate(value?: string) {
 
 function paymentStatusMessage(status?: string) {
   switch (status) {
-    case "Aprovado":
-      return "Pagamento confirmado pelo Mercado Pago.";
-    case "AprovadoAguardandoEstoque":
-      return "Pagamento aprovado; aguardando a confirmação do estoque.";
-    case "EmProcessamento":
-      return "O pagamento está em processamento no Mercado Pago.";
-    case "Recusado":
-      return "O pagamento foi recusado pelo Mercado Pago.";
-    case "Cancelado":
-      return "O pagamento foi cancelado.";
-    case "Expirado":
-      return "O prazo para pagamento expirou.";
-    case "Reembolsado":
-      return "O pagamento foi reembolsado.";
-    default:
-      return "Este pedido está pendente e ainda não representa pagamento confirmado.";
+    case "Aprovado": return "Pagamento confirmado pelo Mercado Pago.";
+    case "AprovadoAguardandoEstoque": return "Pagamento aprovado; aguardando a confirmação do estoque.";
+    case "EmProcessamento": return "O pagamento está em processamento no Mercado Pago.";
+    case "Recusado": return "O pagamento foi recusado pelo Mercado Pago.";
+    case "Cancelado": return "O pagamento foi cancelado.";
+    case "Expirado": return "O prazo para pagamento expirou.";
+    case "Reembolsado": return "O pagamento foi reembolsado.";
+    default: return "Este pedido está pendente e ainda não representa pagamento confirmado.";
   }
 }
 
@@ -42,6 +34,9 @@ export function OrderDetailView({ reference }: { reference: string }) {
   const [error, setError] = useState(false);
   const [resumingPayment, setResumingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancellationMessage, setCancellationMessage] = useState<string | null>(null);
+  const [cancellationError, setCancellationError] = useState<string | null>(null);
 
   async function handleResumePayment() {
     if (!order || resumingPayment) return;
@@ -58,6 +53,26 @@ export function OrderDetailView({ reference }: { reference: string }) {
       setPaymentError(caughtError instanceof Error ? caughtError.message : "Não foi possível retomar o pagamento.");
     } finally {
       setResumingPayment(false);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (!order || cancelling || order.status !== "Pendente") return;
+    if (!window.confirm("Cancelar este pedido? O pagamento será verificado antes da liberação do estoque.")) return;
+
+    setCancelling(true);
+    setCancellationMessage(null);
+    setCancellationError(null);
+    try {
+      const { csrfToken } = await fetchCart();
+      if (!csrfToken) throw new Error("Não foi possível validar sua sessão. Recarregue a página e tente novamente.");
+      const cancelled = await cancelOrder(order.id, csrfToken);
+      setOrder(cancelled);
+      setCancellationMessage("Pedido cancelado. O histórico financeiro foi preservado.");
+    } catch (caughtError) {
+      setCancellationError(caughtError instanceof Error ? caughtError.message : "Não foi possível cancelar o pedido.");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -88,6 +103,7 @@ export function OrderDetailView({ reference }: { reference: string }) {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [reference]);
+
   if (loading) return <div className="cart-message" role="status">Carregando detalhes do pedido...</div>;
   if (error) return <div className="cart-message cart-message--error" role="alert"><h2>Não conseguimos carregar este pedido.</h2><p>Tente novamente em instantes.</p><button className="cart-button cart-button--retry" type="button" onClick={loadOrder}>Tentar novamente</button></div>;
   if (!order) return <div className="cart-message"><span className="catalog-message__eyebrow">Acesso não encontrado</span><h2>Este pedido não está autorizado neste dispositivo.</h2><p>Abra um pedido a partir de “Meus pedidos” ou continue comprando.</p><Link className="hero-cta" href="/pedidos">Voltar para meus pedidos <span>↗</span></Link></div>;
@@ -97,9 +113,10 @@ export function OrderDetailView({ reference }: { reference: string }) {
       <div className="orders-heading"><div><p className="eyebrow">Pedido #{order.id}</p><h1>Acompanhamento</h1></div><Link className="back-link" href="/pedidos">← Meus pedidos</Link></div>
       <div className="order-detail-layout">
         <p className="order-note">Status financeiro: {order.paymentStatus ?? "Aguardando confirmação"}</p>
+        {order.status === "Pendente" && <div className="order-payment-action"><button className="back-link" type="button" onClick={handleCancelOrder} disabled={cancelling}>{cancelling ? "Verificando pagamento..." : "Cancelar pedido"}</button>{cancellationMessage && <p className="order-note" role="status">{cancellationMessage}</p>}{cancellationError && <p className="order-note" role="alert">{cancellationError}</p>}</div>}
         {canPay && <div className="order-payment-action"><button className="cart-button" type="button" onClick={handleResumePayment} disabled={resumingPayment}>{resumingPayment ? "Abrindo Mercado Pago..." : "Pagar agora"}</button>{paymentError && <p className="order-note" role="alert">{paymentError}</p>}</div>}
         <div className="order-detail-card"><div className="order-detail-card__header"><div><p className="eyebrow">Resumo</p><h2>Pedido #{order.id}</h2></div><strong>{order.status}</strong></div><div className="order-items">{order.items.map((item) => <div className="order-item" key={item.productId}><span>{item.quantity} × Produto #{item.productId}</span><strong>{currency.format(item.subtotal)}</strong></div>)}</div><div className="order-total-line"><span>Subtotal</span><strong>{currency.format(order.subtotal)}</strong></div><div className="order-total-line"><span>Frete</span><strong>{currency.format(order.shippingCost)}</strong></div><div className="order-total-line order-total-line--final"><span>Total</span><strong>{currency.format(order.total)}</strong></div></div>
-        <aside className="order-timeline" aria-label="Linha do tempo do pedido"><p className="eyebrow">Acompanhamento</p><div className="order-timeline__step is-current"><span aria-hidden="true" /><div><strong>Status atual: {order.status}</strong><small>Pedido registrado em {formatDate(order.createdAt)}.</small></div></div><div className="order-timeline__step"><span aria-hidden="true" /><div><strong>Próximas atualizações</strong><small>Serão exibidas aqui quando disponibilizadas pela API.</small></div></div><p className="order-note">{paymentStatusMessage(order.paymentStatus)}</p></aside>
+        <aside className="order-timeline" aria-label="Linha do tempo do pedido"><p className="eyebrow">Acompanhamento</p><div className="order-timeline__step is-current"><span aria-hidden="true" /><div><strong>Status atual: {order.status}</strong><small>Pedido registrado em {formatDate(order.createdAt)}.</small></div></div><div className="order-timeline__step"><span /><div><strong>Próximas atualizações</strong><small>Serão exibidas aqui quando disponibilizadas pela API.</small></div></div><p className="order-note">{paymentStatusMessage(order.paymentStatus)}</p></aside>
       </div>
     </section>
   );

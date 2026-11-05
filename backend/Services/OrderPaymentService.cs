@@ -240,6 +240,21 @@ public sealed class OrderPaymentService
         if (attempt is null || (attempt.PreferenceId is not null && payment.PreferenceId is not null && attempt.PreferenceId != payment.PreferenceId)) return false;
         if (payment.Amount != order.Total || !string.Equals(payment.Currency, "BRL", StringComparison.OrdinalIgnoreCase)) return false;
         var incomingStatus = PaymentStatusWorkflow.FromMercadoPago(payment.Status);
+
+        // A cancellation may commit just before a delayed webhook arrives. Preserve
+        // that payment history, but never revive the order or consume stock again.
+        if (order.Status == OrderStatusWorkflow.Cancelled)
+        {
+            if (attempt.PaymentId is not null && attempt.PaymentId != payment.PaymentId) return false;
+
+            attempt.PaymentId = payment.PaymentId;
+            attempt.Status = incomingStatus;
+            attempt.UpdatedAtUtc = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        }
+
         if (attempt.PaymentId == payment.PaymentId)
         {
             if (attempt.Status == PaymentStatusWorkflow.Approved && incomingStatus != PaymentStatusWorkflow.Refunded)

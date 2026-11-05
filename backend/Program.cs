@@ -157,6 +157,7 @@ builder.Services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(cli
 builder.Services.AddScoped<AdminProvisioningService>();
 builder.Services.AddScoped<IOrderAccessCredentialService, OrderAccessCredentialService>();
 builder.Services.AddScoped<OrderPaymentService>();
+builder.Services.AddScoped<IOrderCancellationService, OrderCancellationService>();
 builder.Services.AddScoped<IOrderRecoveryService, OrderRecoveryService>();
 builder.Services.AddSingleton<OrderRecoveryRateLimiter>();
 builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, MySqlDistributedCache>();

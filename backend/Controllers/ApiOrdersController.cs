@@ -31,6 +31,7 @@ public sealed class ApiOrdersController : ControllerBase
     private readonly OrderPaymentService _payments;
     private readonly IOrderRecoveryService _recovery;
     private readonly OrderRecoveryRateLimiter _recoveryRateLimiter;
+    private readonly IOrderCancellationService? _cancellations;
     private readonly IShippingQuoteService _shippingQuotes;
     private readonly ShippingOptions _shippingOptions;
 
@@ -42,7 +43,8 @@ public sealed class ApiOrdersController : ControllerBase
         IOrderRecoveryService recovery,
         OrderRecoveryRateLimiter recoveryRateLimiter,
         IShippingQuoteService? shippingQuotes = null,
-        IOptions<ShippingOptions>? shippingOptions = null)
+        IOptions<ShippingOptions>? shippingOptions = null,
+        IOrderCancellationService? cancellations = null)
     {
         _context = context;
         _antiforgery = antiforgery;
@@ -50,6 +52,7 @@ public sealed class ApiOrdersController : ControllerBase
         _payments = payments;
         _recovery = recovery;
         _recoveryRateLimiter = recoveryRateLimiter;
+        _cancellations = cancellations;
         _shippingQuotes = shippingQuotes ?? new DisabledShippingQuoteService();
         _shippingOptions = shippingOptions?.Value ?? new ShippingOptions();
     }
@@ -72,15 +75,45 @@ public sealed class ApiOrdersController : ControllerBase
             .Where(order => orderIds.Contains(order.Id))
             .ToDictionaryAsync(order => order.Id, cancellationToken);
 
-        var result = access
-            .Select(item => orders.TryGetValue(item.Credential.OrderId, out var order)
-                ? ToResponse(order)
-                : null)
-            .Where(order => order is not null)
-            .Cast<ApiOrderResponse>()
+        var result = orders.Values
+            .OrderByDescending(order => order.CreatedAt)
+            .Select(order => ToResponse(order))
             .ToArray();
 
         return Ok(result);
+    }
+
+    [HttpPost("{id:int}/cancel")]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting("order-tracking")]
+    public async Task<ActionResult<ApiOrderResponse>> CancelOrder(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        var access = await _orderAccess.ResolveAsync(Request, cancellationToken);
+        if (!access.Any(item => item.Credential.OrderId == id))
+        {
+            return Unauthorized();
+        }
+
+        if (_cancellations is null)
+        {
+            return Problem("O cancelamento de pedidos não está disponível.", statusCode: 503);
+        }
+
+        try
+        {
+            var order = await _cancellations.CancelAsync(id, cancellationToken);
+            return Ok(ToResponse(order));
+        }
+        catch (OrderCancellationException exception)
+        {
+            return StatusCode(exception.StatusCode, new ApiOrderError
+            {
+                Code = exception.Code,
+                Message = exception.Message
+            });
+        }
     }
 
     [HttpPost("authorized/revoke")]

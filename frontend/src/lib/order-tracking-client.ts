@@ -39,6 +39,35 @@ export async function fetchAuthorizedOrders(): Promise<OrderResponse[]> {
   return payload.filter(isOrderResponse);
 }
 
+export async function cancelOrder(orderId: number, csrfToken: string): Promise<OrderResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        RequestVerificationToken: csrfToken,
+      },
+      body: "{}",
+    });
+  } catch {
+    throw new OrderTrackingApiError(0);
+  }
+
+  const payload = await response.json().catch(() => null) as OrderResponse | { message?: string } | null;
+  if (!response.ok) {
+    const error = new OrderTrackingApiError(response.status);
+    if (payload && "message" in payload && typeof payload.message === "string") error.message = payload.message;
+    throw error;
+  }
+
+  if (!payload || typeof payload !== "object" || !("id" in payload)) throw new OrderTrackingApiError(502);
+  return payload as OrderResponse;
+}
+
 async function recoveryRequest(path: string, body: unknown, csrfToken: string): Promise<Response> {
   return fetch(path, {
     method: "POST",

@@ -153,16 +153,55 @@ public sealed class MercadoPagoService : IMercadoPagoService
         if (!response.IsSuccessStatusCode) throw new MercadoPagoException("Não foi possível consultar o pagamento no Mercado Pago.");
 
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-        var root = document.RootElement;
-        return new MercadoPagoPaymentResult(
-            root.GetProperty("id").ToString(),
-            root.GetProperty("status").GetString() ?? "unknown",
-            GetString(root, "external_reference"),
-            GetString(root, "preference_id"),
-            root.TryGetProperty("transaction_amount", out var amount) ? amount.GetDecimal() : 0m,
-            GetString(root, "currency_id") ?? string.Empty,
-            GetDate(root, "date_created"),
-            GetDate(root, "date_last_updated"));
+        return ParsePayment(document.RootElement);
+    }
+
+    public async Task<IReadOnlyList<MercadoPagoPaymentResult>> SearchPaymentsByExternalReferenceAsync(
+        string externalReference,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(externalReference) || externalReference.Length > 100)
+        {
+            return [];
+        }
+
+        var url = $"{ApiBaseUrl}/v1/payments/search?sort=date_created&criteria=desc&external_reference={Uri.EscapeDataString(externalReference)}&limit=30";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Required("MercadoPago:AccessToken"));
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new MercadoPagoException("Não foi possível verificar os pagamentos no Mercado Pago.");
+        }
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        if (!document.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return results.EnumerateArray().Select(ParsePayment).ToArray();
+    }
+
+    public async Task CancelPaymentAsync(string paymentId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(paymentId) || paymentId.Length > 64)
+        {
+            throw new MercadoPagoException("O pagamento não possui um identificador válido para cancelamento.");
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            $"{ApiBaseUrl}/v1/payments/{Uri.EscapeDataString(paymentId)}")
+        {
+            Content = JsonContent.Create(new { status = "cancelled" })
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Required("MercadoPago:AccessToken"));
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new MercadoPagoException("Não foi possível cancelar o pagamento no Mercado Pago.");
+        }
     }
 
     public bool IsValidWebhookSignature(string? signature, string? requestId, string? dataId)
@@ -259,6 +298,16 @@ public sealed class MercadoPagoService : IMercadoPagoService
 
     private static string? GetString(JsonElement root, string name) =>
         root.TryGetProperty(name, out var property) && property.ValueKind != JsonValueKind.Null ? property.ToString() : null;
+
+    private static MercadoPagoPaymentResult ParsePayment(JsonElement root) => new(
+        root.GetProperty("id").ToString(),
+        root.GetProperty("status").GetString() ?? "unknown",
+        GetString(root, "external_reference"),
+        GetString(root, "preference_id"),
+        root.TryGetProperty("transaction_amount", out var amount) ? amount.GetDecimal() : 0m,
+        GetString(root, "currency_id") ?? string.Empty,
+        GetDate(root, "date_created"),
+        GetDate(root, "date_last_updated"));
 
     private static string FormatPreferenceDate(DateTimeOffset value) =>
         value.ToOffset(MercadoPagoTimeZoneOffset)
