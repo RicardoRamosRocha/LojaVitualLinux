@@ -75,8 +75,9 @@ public sealed class MelhorEnvioOAuthController : ControllerBase
     private void LogFailure(ShippingOAuthException exception)
     {
         _logger.LogWarning(
-            "Melhor Envio OAuth falhou. ErrorCode={ErrorCode}; ProviderHttpStatusCode={ProviderHttpStatusCode}",
+            "Melhor Envio OAuth falhou. ErrorCode={ErrorCode}; ProviderHttpStatusCode={ProviderHttpStatusCode}; TransportCategory={TransportCategory}",
             exception.Code,
-            exception.ProviderStatusCode);
+            exception.ProviderStatusCode,
+            exception.TransportCategory);
     }
 }

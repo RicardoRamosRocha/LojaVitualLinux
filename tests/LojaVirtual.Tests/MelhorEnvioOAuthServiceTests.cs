@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using LojaVirtual.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using System.Net.Sockets;
 using Xunit;
 
 namespace LojaVirtual.Tests;
@@ -142,6 +143,25 @@ public sealed class MelhorEnvioOAuthServiceTests
     }
 
     [Fact]
+    public async Task Transport_error_is_classified_without_exposing_exception_details()
+    {
+        await using var database = new TestDatabase();
+        var handler = new OAuthHandler(_ => throw new HttpRequestException(
+            "sensitive host and connection details",
+            new SocketException((int)SocketError.HostNotFound)));
+        var service = CreateService(database, handler);
+        var authorizationUri = await service.CreateAuthorizationUriAsync();
+        var state = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(authorizationUri.Query)["state"].ToString();
+
+        var exception = await Assert.ThrowsAsync<ShippingOAuthException>(() =>
+            service.ExchangeAuthorizationCodeAsync(state, "code-test"));
+
+        Assert.Equal("oauth_unavailable", exception.Code);
+        Assert.Equal("dns", exception.TransportCategory);
+        Assert.DoesNotContain("sensitive host and connection details", exception.Message);
+    }
+
+    [Fact]
     public async Task OAuth_controller_logs_only_safe_error_fields_and_keeps_response_generic()
     {
         const string state = "state-secret";
@@ -153,7 +173,8 @@ public sealed class MelhorEnvioOAuthServiceTests
                 "oauth_provider_error",
                 "provider response must not be logged",
                 502,
-                providerStatusCode: 401)),
+                providerStatusCode: 401,
+                transportCategory: "connection")),
             logger);
 
         var result = await controller.Callback(state, code, null, CancellationToken.None);
@@ -165,6 +186,7 @@ public sealed class MelhorEnvioOAuthServiceTests
         Assert.Contains("oauth_failed", responseText);
         Assert.Contains("oauth_provider_error", logText);
         Assert.Contains("401", logText);
+        Assert.Contains("connection", logText);
         Assert.DoesNotContain(state, logText);
         Assert.DoesNotContain(code, logText);
         Assert.DoesNotContain(token, logText);

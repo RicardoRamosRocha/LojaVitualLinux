@@ -1,6 +1,8 @@
 using System.Data;
 using System.Net;
 using System.Security.Cryptography;
+using System.Security.Authentication;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -200,11 +202,21 @@ public sealed class MelhorEnvioOAuthService : IMelhorEnvioOAuthService
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new ShippingOAuthException("oauth_timeout", "O serviço de autorização está indisponível.", 504, exception);
+            throw new ShippingOAuthException(
+                "oauth_timeout",
+                "O serviço de autorização está indisponível.",
+                504,
+                exception,
+                transportCategory: "timeout");
         }
         catch (HttpRequestException exception)
         {
-            throw new ShippingOAuthException("oauth_unavailable", "O serviço de autorização está indisponível.", 503, exception);
+            throw new ShippingOAuthException(
+                "oauth_unavailable",
+                "O serviço de autorização está indisponível.",
+                503,
+                exception,
+                transportCategory: ClassifyTransportFailure(exception));
         }
 
         using (response)
@@ -344,6 +356,32 @@ public sealed class MelhorEnvioOAuthService : IMelhorEnvioOAuthService
         .Replace('+', '-')
         .Replace('/', '_');
 
+    private static string ClassifyTransportFailure(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is AuthenticationException)
+            {
+                return "tls";
+            }
+
+            if (current is SocketException socketException)
+            {
+                return socketException.SocketErrorCode switch
+                {
+                    SocketError.HostNotFound or SocketError.NoData or SocketError.TryAgain => "dns",
+                    SocketError.ConnectionRefused => "connection_refused",
+                    SocketError.NetworkUnreachable or SocketError.HostUnreachable => "network_unreachable",
+                    SocketError.ConnectionReset or SocketError.ConnectionAborted => "connection_reset",
+                    SocketError.TimedOut => "timeout",
+                    _ => "socket"
+                };
+            }
+        }
+
+        return "connection";
+    }
+
     private sealed record OAuthStateRecord(DateTimeOffset ExpiresAtUtc);
 
     private sealed class MelhorEnvioTokenResponse
@@ -366,15 +404,18 @@ public sealed class ShippingOAuthException : Exception
         string message,
         int statusCode,
         Exception? innerException = null,
-        int? providerStatusCode = null)
+        int? providerStatusCode = null,
+        string? transportCategory = null)
         : base(message, innerException)
     {
         Code = code;
         StatusCode = statusCode;
         ProviderStatusCode = providerStatusCode;
+        TransportCategory = transportCategory;
     }
 
     public string Code { get; }
     public int StatusCode { get; }
     public int? ProviderStatusCode { get; }
+    public string? TransportCategory { get; }
 }
