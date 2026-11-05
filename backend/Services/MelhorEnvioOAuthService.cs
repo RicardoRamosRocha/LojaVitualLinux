@@ -211,7 +211,11 @@ public sealed class MelhorEnvioOAuthService : IMelhorEnvioOAuthService
         {
             if (!response.IsSuccessStatusCode)
             {
-                throw new ShippingOAuthException("oauth_provider_error", "O serviço de autorização rejeitou a solicitação.", 502);
+                throw new ShippingOAuthException(
+                    "oauth_provider_error",
+                    "O serviço de autorização rejeitou a solicitação.",
+                    502,
+                    providerStatusCode: (int)response.StatusCode);
             }
 
             MelhorEnvioTokenResponse? token;
@@ -221,12 +225,21 @@ public sealed class MelhorEnvioOAuthService : IMelhorEnvioOAuthService
             }
             catch (JsonException exception)
             {
-                throw new ShippingOAuthException("oauth_invalid_response", "O serviço de autorização retornou uma resposta inválida.", 502, exception);
+                throw new ShippingOAuthException(
+                    "oauth_invalid_response",
+                    "O serviço de autorização retornou uma resposta inválida.",
+                    502,
+                    exception,
+                    (int)response.StatusCode);
             }
 
             if (string.IsNullOrWhiteSpace(token?.AccessToken) || string.IsNullOrWhiteSpace(token.RefreshToken))
             {
-                throw new ShippingOAuthException("oauth_invalid_response", "O serviço de autorização retornou uma resposta inválida.", 502);
+                throw new ShippingOAuthException(
+                    "oauth_invalid_response",
+                    "O serviço de autorização retornou uma resposta inválida.",
+                    502,
+                    providerStatusCode: (int)response.StatusCode);
             }
 
             await _tokenStore.SaveAsync(new MelhorEnvioToken(
@@ -348,13 +361,20 @@ public sealed class MelhorEnvioOAuthService : IMelhorEnvioOAuthService
 
 public sealed class ShippingOAuthException : Exception
 {
-    public ShippingOAuthException(string code, string message, int statusCode, Exception? innerException = null)
+    public ShippingOAuthException(
+        string code,
+        string message,
+        int statusCode,
+        Exception? innerException = null,
+        int? providerStatusCode = null)
         : base(message, innerException)
     {
         Code = code;
         StatusCode = statusCode;
+        ProviderStatusCode = providerStatusCode;
     }
 
     public string Code { get; }
     public int StatusCode { get; }
+    public int? ProviderStatusCode { get; }
 }

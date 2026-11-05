@@ -9,8 +9,15 @@ namespace LojaVirtual.Controllers;
 public sealed class MelhorEnvioOAuthController : ControllerBase
 {
     private readonly IMelhorEnvioOAuthService _oauth;
+    private readonly ILogger<MelhorEnvioOAuthController> _logger;
 
-    public MelhorEnvioOAuthController(IMelhorEnvioOAuthService oauth) => _oauth = oauth;
+    public MelhorEnvioOAuthController(
+        IMelhorEnvioOAuthService oauth,
+        ILogger<MelhorEnvioOAuthController> logger)
+    {
+        _oauth = oauth;
+        _logger = logger;
+    }
 
     [HttpPost("authorize")]
     [Authorize(Policy = "AdminOnly")]
@@ -22,8 +29,9 @@ public sealed class MelhorEnvioOAuthController : ControllerBase
             var authorizationUri = await _oauth.CreateAuthorizationUriAsync(cancellationToken);
             return Redirect(authorizationUri.ToString());
         }
-        catch (ShippingOAuthException)
+        catch (ShippingOAuthException exception)
         {
+            LogFailure(exception);
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new
             {
                 code = "oauth_unavailable",
@@ -50,6 +58,7 @@ public sealed class MelhorEnvioOAuthController : ControllerBase
         }
         catch (ShippingOAuthException exception)
         {
+            LogFailure(exception);
             var statusCode = exception.StatusCode is >= 400 and <= 499
                 ? StatusCodes.Status400BadRequest
                 : StatusCodes.Status503ServiceUnavailable;
@@ -61,5 +70,13 @@ public sealed class MelhorEnvioOAuthController : ControllerBase
                     : "A autorização foi recusada ou não pôde ser validada."
             });
         }
+    }
+
+    private void LogFailure(ShippingOAuthException exception)
+    {
+        _logger.LogWarning(
+            "Melhor Envio OAuth falhou. ErrorCode={ErrorCode}; ProviderHttpStatusCode={ProviderHttpStatusCode}",
+            exception.Code,
+            exception.ProviderStatusCode);
     }
 }

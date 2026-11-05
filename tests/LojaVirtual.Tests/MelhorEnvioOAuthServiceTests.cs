@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
+using LojaVirtual.Controllers;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using Xunit;
 
 namespace LojaVirtual.Tests;
@@ -133,7 +137,38 @@ public sealed class MelhorEnvioOAuthServiceTests
             service.ExchangeAuthorizationCodeAsync(state, "code-test"));
 
         Assert.Equal("oauth_provider_error", exception.Code);
+        Assert.Equal(400, exception.ProviderStatusCode);
         Assert.DoesNotContain("hidden", exception.Message);
+    }
+
+    [Fact]
+    public async Task OAuth_controller_logs_only_safe_error_fields_and_keeps_response_generic()
+    {
+        const string state = "state-secret";
+        const string code = "authorization-code-secret";
+        const string token = "access-token-secret";
+        var logger = new RecordingLogger<MelhorEnvioOAuthController>();
+        var controller = new MelhorEnvioOAuthController(
+            new ThrowingOAuthService(new ShippingOAuthException(
+                "oauth_provider_error",
+                "provider response must not be logged",
+                502,
+                providerStatusCode: 401)),
+            logger);
+
+        var result = await controller.Callback(state, code, null, CancellationToken.None);
+        var response = Assert.IsType<ObjectResult>(result);
+        var responseText = JsonSerializer.Serialize(response.Value);
+        var logText = string.Join("\n", logger.Messages);
+
+        Assert.Equal(503, response.StatusCode);
+        Assert.Contains("oauth_failed", responseText);
+        Assert.Contains("oauth_provider_error", logText);
+        Assert.Contains("401", logText);
+        Assert.DoesNotContain(state, logText);
+        Assert.DoesNotContain(code, logText);
+        Assert.DoesNotContain(token, logText);
+        Assert.DoesNotContain("provider response must not be logged", logText);
     }
 
     private static MelhorEnvioOAuthService CreateService(
@@ -197,6 +232,37 @@ public sealed class MelhorEnvioOAuthServiceTests
                 ? string.Empty
                 : await request.Content.ReadAsStringAsync(cancellationToken);
             return responder(request);
+        }
+    }
+
+    private sealed class ThrowingOAuthService(ShippingOAuthException exception) : IMelhorEnvioOAuthService
+    {
+        public Task<Uri> CreateAuthorizationUriAsync(CancellationToken cancellationToken = default) =>
+            throw exception;
+
+        public Task ExchangeAuthorizationCodeAsync(string state, string code, CancellationToken cancellationToken = default) =>
+            throw exception;
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter) => Messages.Add(formatter(state, null));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose() { }
         }
     }
 }
