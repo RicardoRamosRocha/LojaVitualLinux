@@ -14,7 +14,6 @@ function getProductImage(product: Product) {
 export function ProductCard({ product, showCategory = false }: { product: Product; showCategory?: boolean }) {
   const image = getProductImage(product);
   const isAvailable = product.stock > 0;
-  const isLowStock = product.stock > 0 && product.stock <= 5;
 
   return (
     <Link className="product-card" href={`/produtos/${product.id}`}>
@@ -28,17 +27,13 @@ export function ProductCard({ product, showCategory = false }: { product: Produc
               <span>Angel</span>
             </div>
           )}
-          {product.isFeatured && <span className="product-card__badge">Destaque</span>}
         </div>
 
         <div className="product-card__content">
           {showCategory && <p className="product-card__category">{product.category?.name ?? "Acessórios"}</p>}
           <h3>{product.name}</h3>
           <p className="product-card__price">{currency.format(product.price)}</p>
-          <p className={`product-card__stock ${!isAvailable ? "is-unavailable" : ""}`}>
-            <span aria-hidden="true" />
-            {!isAvailable ? "Esgotado" : isLowStock ? `Últimas ${product.stock} unidades` : "Disponível"}
-          </p>
+          <span className={`product-card__action ${!isAvailable ? "is-unavailable" : ""}`}>{isAvailable ? "Comprar" : "Esgotado"}<span aria-hidden="true">↗</span></span>
         </div>
       </article>
     </Link>

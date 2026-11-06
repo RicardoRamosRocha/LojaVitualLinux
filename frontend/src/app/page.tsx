@@ -90,13 +90,10 @@ export default function Home() {
 
         <div className="hero-layout">
           <div className="hero-content" id="inicio">
-            <p className="eyebrow">Detalhes que contam histórias</p>
+            <p className="eyebrow">Angel Acessórios</p>
             <h1>Seu brilho, <em>seu momento.</em></h1>
-            <p className="hero-copy">
-              Joias e acessórios escolhidos para acompanhar a sua essência com delicadeza,
-              presença e um toque dourado.
-            </p>
-            <a className="hero-cta" href="#colecao">Conheça a coleção <span>↘</span></a>
+            <p className="hero-copy">Acessórios para iluminar seus momentos.</p>
+            <a className="hero-cta" href="#colecao">Ver coleção <span>↘</span></a>
           </div>
 
           <div className="hero-video-shell" aria-label="Vídeo institucional Angel Acessórios">
@@ -121,7 +118,7 @@ export default function Home() {
             <p className="eyebrow">Para você escolher</p>
             <h2>A coleção Angel</h2>
           </div>
-          <p className="section-description">Peças que transformam o cotidiano em ocasião especial.</p>
+          <p className="section-description">Escolhas delicadas para todos os dias.</p>
         </div>
         <Suspense fallback={<ProductGridFallback />}>
           <ProductSection />
