@@ -25,6 +25,7 @@ export function OrderTrackingView() {
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const recoveryLinkHandled = useRef(false);
 
   const loadOrders = useCallback(() => {
@@ -41,6 +42,17 @@ export function OrderTrackingView() {
       .finally(() => setLoading(false));
   }, []);
 
+  const refreshOrders = useCallback(() => {
+    setRefreshing(true);
+    return fetchAuthorizedOrders()
+      .then(setOrders)
+      .catch((caughtError) => {
+        if (caughtError instanceof OrderTrackingApiError && caughtError.status === 401) setUnauthorized(true);
+        else setError(true);
+      })
+      .finally(() => setRefreshing(false));
+  }, []);
+
   useEffect(() => {
     let active = true;
     fetchAuthorizedOrders()
@@ -54,6 +66,18 @@ export function OrderTrackingView() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void refreshOrders();
+    };
+    const interval = window.setInterval(refresh, 30_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [refreshOrders]);
 
   useEffect(() => {
     if (recoveryLinkHandled.current) return;
@@ -115,7 +139,7 @@ export function OrderTrackingView() {
     <section className="orders-shell">
       <div className="orders-heading">
         <div><p className="eyebrow">Acompanhe de perto</p><h1>Meus pedidos</h1></div>
-        <button className="hero-cta" type="button" onClick={openRecovery}>Recuperar meus pedidos <span>↗</span></button>
+        <div><button className="back-link" type="button" onClick={() => void refreshOrders()} disabled={refreshing}>{refreshing ? "Atualizando..." : "Atualizar pedidos"}</button><button className="hero-cta" type="button" onClick={openRecovery}>Recuperar meus pedidos <span>↗</span></button></div>
         <Link className="back-link" href="/#colecao">← Continuar comprando</Link>
       </div>
       {loading && <div className="cart-message" role="status" aria-live="polite">Carregando seus pedidos...</div>}

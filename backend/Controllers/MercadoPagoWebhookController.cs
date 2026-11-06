@@ -2,6 +2,7 @@ using LojaVirtual.Services;
 using LojaVirtual.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LojaVirtual.Controllers;
 
@@ -26,10 +27,44 @@ public sealed class MercadoPagoWebhookController : ControllerBase
         var requestId = Request.Headers["x-request-id"].FirstOrDefault();
         if (!_mercadoPago.IsValidWebhookSignature(signature, requestId, dataId)) return Unauthorized();
 
-        var payment = await _mercadoPago.GetPaymentAsync(dataId!, cancellationToken);
+        MercadoPagoPaymentResult? payment;
+        try
+        {
+            payment = await _mercadoPago.GetPaymentAsync(dataId!, cancellationToken);
+        }
+        catch (MercadoPagoException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+
         if (payment is null) return NotFound();
 
-        await _payments.ProcessPaymentAsync(payment, cancellationToken);
-        return Ok();
+        try
+        {
+            var result = await _payments.ProcessPaymentResultAsync(payment, cancellationToken);
+            return result switch
+            {
+                PaymentProcessingResult.Processed => Ok(),
+                PaymentProcessingResult.Duplicate => Ok(),
+                PaymentProcessingResult.Invalid => BadRequest(new
+                {
+                    code = "payment_event_invalid",
+                    message = "O evento de pagamento não corresponde a um pedido válido."
+                }),
+                _ => StatusCode(StatusCodes.Status503ServiceUnavailable)
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        catch (DbUpdateException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
     }
 }

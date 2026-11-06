@@ -256,9 +256,17 @@ public sealed class MelhorEnvioQuoteService : IShippingQuoteService
             throw new ShippingQuoteException("shipping_invalid_items", "Os itens do carrinho não podem ser cotados.", 422);
         }
         var package = _options.StandardPackage;
-        if (!package.Enabled || package.MaxItems < 1 || items.Sum(item => item.Quantity) > package.MaxItems)
+        if (!package.Enabled || package.MaxItems < 1)
         {
             throw new ShippingQuoteException("shipping_package_not_configured", "A embalagem padrão ainda não foi validada para este carrinho.", 422);
+        }
+        var totalQuantity = items.Sum(item => item.Quantity);
+        if (totalQuantity > package.MaxItems)
+        {
+            throw new ShippingQuoteException(
+                "shipping_package_capacity_exceeded",
+                $"A embalagem padrão comporta até {package.MaxItems} unidade(s); reduza o carrinho para cotar o frete.",
+                422);
         }
         if (package.LengthCm <= 0 || package.WidthCm <= 0 || package.HeightCm <= 0 || package.WeightKg <= 0)
         {

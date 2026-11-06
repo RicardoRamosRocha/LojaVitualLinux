@@ -12,6 +12,13 @@ public sealed record MercadoPagoPaymentResult(
     DateTimeOffset? CreatedAt,
     DateTimeOffset? UpdatedAt);
 
+public enum PaymentProcessingResult
+{
+    Processed,
+    Duplicate,
+    Invalid
+}
+
 public static class PaymentStatusWorkflow
 {
     public const string CreatingPreference = "CriandoPreferencia";

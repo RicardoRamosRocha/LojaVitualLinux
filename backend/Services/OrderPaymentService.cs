@@ -216,7 +216,15 @@ public sealed class OrderPaymentService
 
     public async Task<bool> ProcessPaymentAsync(MercadoPagoPaymentResult payment, CancellationToken cancellationToken = default)
     {
-        if (!int.TryParse(payment.ExternalReference, out var orderId)) return false;
+        var result = await ProcessPaymentResultAsync(payment, cancellationToken);
+        return result is PaymentProcessingResult.Processed or PaymentProcessingResult.Duplicate;
+    }
+
+    public async Task<PaymentProcessingResult> ProcessPaymentResultAsync(
+        MercadoPagoPaymentResult payment,
+        CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(payment.ExternalReference, out var orderId)) return PaymentProcessingResult.Invalid;
 
         await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         var expiredReservations = await _context.StockReservations
@@ -233,40 +241,45 @@ public sealed class OrderPaymentService
             .Include(item => item.StockReservations)
             .Include(item => item.PaymentAttempts)
             .SingleOrDefaultAsync(item => item.Id == orderId, cancellationToken);
-        if (order is null) return false;
+        if (order is null) return PaymentProcessingResult.Invalid;
 
         var attempt = order.PaymentAttempts.FirstOrDefault(item => item.PreferenceId == payment.PreferenceId)
             ?? order.PaymentAttempts.OrderByDescending(item => item.AttemptNumber).FirstOrDefault();
-        if (attempt is null || (attempt.PreferenceId is not null && payment.PreferenceId is not null && attempt.PreferenceId != payment.PreferenceId)) return false;
-        if (payment.Amount != order.Total || !string.Equals(payment.Currency, "BRL", StringComparison.OrdinalIgnoreCase)) return false;
+        if (attempt is null || (attempt.PreferenceId is not null && payment.PreferenceId is not null && attempt.PreferenceId != payment.PreferenceId)) return PaymentProcessingResult.Invalid;
+        if (payment.Amount != order.Total || !string.Equals(payment.Currency, "BRL", StringComparison.OrdinalIgnoreCase)) return PaymentProcessingResult.Invalid;
         var incomingStatus = PaymentStatusWorkflow.FromMercadoPago(payment.Status);
 
         // A cancellation may commit just before a delayed webhook arrives. Preserve
         // that payment history, but never revive the order or consume stock again.
         if (order.Status == OrderStatusWorkflow.Cancelled)
         {
-            if (attempt.PaymentId is not null && attempt.PaymentId != payment.PaymentId) return false;
+            if (attempt.PaymentId is not null && attempt.PaymentId != payment.PaymentId) return PaymentProcessingResult.Invalid;
+
+            if (attempt.PaymentId == payment.PaymentId && attempt.Status == incomingStatus)
+            {
+                return PaymentProcessingResult.Duplicate;
+            }
 
             attempt.PaymentId = payment.PaymentId;
             attempt.Status = incomingStatus;
             attempt.UpdatedAtUtc = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return true;
+            return PaymentProcessingResult.Processed;
         }
 
         if (attempt.PaymentId == payment.PaymentId)
         {
             if (attempt.Status == PaymentStatusWorkflow.Approved && incomingStatus != PaymentStatusWorkflow.Refunded)
-                return true;
+                return PaymentProcessingResult.Duplicate;
             if (attempt.Status == PaymentStatusWorkflow.StockReview && incomingStatus is not PaymentStatusWorkflow.Approved and not PaymentStatusWorkflow.Refunded)
-                return true;
+                return PaymentProcessingResult.Duplicate;
             if (PaymentStatusWorkflow.IsTerminal(attempt.Status) && incomingStatus != PaymentStatusWorkflow.Refunded)
-                return true;
+                return PaymentProcessingResult.Duplicate;
             if (attempt.Status == PaymentStatusWorkflow.Refunded)
-                return true;
+                return PaymentProcessingResult.Duplicate;
         }
-        if (attempt.PaymentId is not null && attempt.PaymentId != payment.PaymentId) return false;
+        if (attempt.PaymentId is not null && attempt.PaymentId != payment.PaymentId) return PaymentProcessingResult.Invalid;
 
         attempt.PaymentId = payment.PaymentId;
         attempt.Status = incomingStatus;
@@ -327,7 +340,7 @@ public sealed class OrderPaymentService
 
         await _context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return true;
+        return PaymentProcessingResult.Processed;
     }
 
     public static void ReleaseReservations(Order order)

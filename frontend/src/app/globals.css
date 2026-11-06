@@ -230,6 +230,10 @@ h2 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(38px, 5vw,
 .order-timeline__step > span { background: var(--line); border: 3px solid var(--cream); border-radius: 50%; box-shadow: 0 0 0 1px var(--gold); flex: 0 0 12px; height: 12px; margin-top: 3px; position: relative; z-index: 1; width: 12px; }
 .order-timeline__step:not(:last-of-type)::after { background: var(--line); content: ""; height: 64px; left: 5px; position: absolute; top: 14px; width: 1px; }
 .order-timeline__step.is-current > span { background: var(--gold); }
+.order-timeline__step.is-complete > span { background: var(--gold); }
+.order-timeline__step.is-complete::after { background: var(--gold); }
+.order-timeline__step.is-blocked > span { background: var(--line); box-shadow: 0 0 0 1px var(--muted); }
+.order-timeline__step.is-blocked strong { color: var(--muted); }
 .order-timeline__step strong, .order-timeline__step small { display: block; }
 .order-timeline__step strong { font-family: Georgia, serif; font-size: 17px; font-weight: 400; margin-bottom: 7px; }
 .order-timeline__step small { color: var(--muted); font-size: 11px; line-height: 1.5; }

@@ -43,6 +43,61 @@ public sealed class ShippingQuoteServiceTests
     }
 
     [Fact]
+    public async Task Quotes_one_product_using_the_standard_package()
+    {
+        var handler = SuccessfulQuoteHandler();
+        var service = CreateService(handler, maxItems: 2);
+
+        var result = await service.QuoteAsync("30110-012", [new ShippingQuoteItem(10, 1, 49.90m)]);
+
+        Assert.Single(result.Options);
+        Assert.Contains("\"weight\":0.2", handler.LastRequestBody);
+        Assert.Contains("\"insurance\":49.9", handler.LastRequestBody);
+    }
+
+    [Fact]
+    public async Task Quotes_two_different_products_as_one_standard_package()
+    {
+        var handler = SuccessfulQuoteHandler();
+        var service = CreateService(handler, maxItems: 2);
+
+        var result = await service.QuoteAsync("30110-012", [
+            new ShippingQuoteItem(10, 1, 49.90m),
+            new ShippingQuoteItem(11, 1, 20.10m)
+        ]);
+
+        Assert.Single(result.Options);
+        Assert.Contains("\"insurance\":70.0", handler.LastRequestBody);
+        Assert.Equal(1, handler.LastRequestBody.Split("\"width\"", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task Quotes_two_units_of_the_same_product_within_capacity()
+    {
+        var handler = SuccessfulQuoteHandler();
+        var service = CreateService(handler, maxItems: 2);
+
+        var result = await service.QuoteAsync("30110-012", [new ShippingQuoteItem(10, 2, 49.90m)]);
+
+        Assert.Single(result.Options);
+        Assert.Contains("\"insurance\":99.8", handler.LastRequestBody);
+    }
+
+    [Fact]
+    public async Task Rejects_total_quantity_above_standard_package_capacity_before_api_call()
+    {
+        var handler = new StubHandler(_ => throw new InvalidOperationException("API não deveria ser chamada"));
+        var service = CreateService(handler, maxItems: 2);
+
+        var exception = await Assert.ThrowsAsync<ShippingQuoteException>(() =>
+            service.QuoteAsync("30110-012", [new ShippingQuoteItem(10, 2, 49.90m), new ShippingQuoteItem(11, 1, 20.10m)]));
+
+        Assert.Equal("shipping_package_capacity_exceeded", exception.Code);
+        Assert.Equal(422, exception.StatusCode);
+        Assert.Empty(handler.LastRequestBody);
+    }
+
+    [Fact]
     public async Task Blocks_when_standard_package_is_not_enabled_or_capacity_is_unknown()
     {
         var service = CreateService(new StubHandler(_ => throw new InvalidOperationException("API não deveria ser chamada")), maxItems: 0, packageEnabled: false);
@@ -90,6 +145,11 @@ public sealed class ShippingQuoteServiceTests
         });
         return new MelhorEnvioQuoteService(client, options, NullLogger<MelhorEnvioQuoteService>.Instance);
     }
+
+    private static StubHandler SuccessfulQuoteHandler() => new(_ => new HttpResponseMessage(HttpStatusCode.OK)
+    {
+        Content = new StringContent("[{\"id\":1,\"name\":\"SEDEX\",\"price\":38.50,\"delivery_time\":5,\"company\":{\"name\":\"Correios\"}}]")
+    });
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
     {
