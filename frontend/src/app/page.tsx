@@ -31,7 +31,6 @@ function ProductCategorySection({ name, products }: { name: string; products: Pr
     <section className="category-section" aria-labelledby={headingId}>
       <div className="category-section__heading">
         <h3 id={headingId}>{name}</h3>
-        {products.length > 2 && <span className="category-section__hint">Deslize para ver mais</span>}
       </div>
       <div className="category-carousel" role="region" aria-label={`Produtos de ${name}`}>
         {products.map((product) => <ProductCard key={product.id} product={product} />)}
@@ -92,7 +91,6 @@ export default function Home() {
           <div className="hero-content" id="inicio">
             <p className="eyebrow">Angel Acessórios</p>
             <h1>Seu brilho, <em>seu momento.</em></h1>
-            <p className="hero-copy">Acessórios para iluminar seus momentos.</p>
             <a className="hero-cta" href="#colecao">Ver coleção <span>↘</span></a>
           </div>
 
@@ -114,11 +112,7 @@ export default function Home() {
 
       <section className="collection-section" id="colecao">
         <div className="section-heading">
-          <div>
-            <p className="eyebrow">Para você escolher</p>
-            <h2>A coleção Angel</h2>
-          </div>
-          <p className="section-description">Escolhas delicadas para todos os dias.</p>
+          <h2>A coleção Angel</h2>
         </div>
         <Suspense fallback={<ProductGridFallback />}>
           <ProductSection />
