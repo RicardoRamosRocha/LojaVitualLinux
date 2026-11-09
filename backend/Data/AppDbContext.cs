@@ -22,6 +22,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionK
     public DbSet<OrderAccessCredential> OrderAccessCredentials { get; set; }
     public DbSet<OrderAccessRecoveryToken> OrderAccessRecoveryTokens { get; set; }
     public DbSet<OrderPaymentAttempt> OrderPaymentAttempts { get; set; }
+    public DbSet<OrderNotificationOutbox> OrderNotificationOutbox { get; set; }
 
     public DbSet<Customer> Customers { get; set; }
 
@@ -142,6 +143,37 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionK
             .HasIndex(attempt => attempt.PreferenceId).IsUnique();
         modelBuilder.Entity<OrderPaymentAttempt>()
             .HasIndex(attempt => attempt.PaymentId).IsUnique();
+
+        modelBuilder.Entity<OrderNotificationOutbox>()
+            .HasOne(notification => notification.Order)
+            .WithMany()
+            .HasForeignKey(notification => notification.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OrderNotificationOutbox>()
+            .Property(notification => notification.EventType)
+            .HasMaxLength(64)
+            .IsRequired();
+
+        modelBuilder.Entity<OrderNotificationOutbox>()
+            .Property(notification => notification.LeaseToken)
+            .HasMaxLength(64);
+
+        modelBuilder.Entity<OrderNotificationOutbox>()
+            .Property(notification => notification.LastError)
+            .HasMaxLength(120);
+
+        modelBuilder.Entity<OrderNotificationOutbox>()
+            .HasIndex(notification => new { notification.OrderId, notification.EventType })
+            .IsUnique();
+
+        modelBuilder.Entity<OrderNotificationOutbox>()
+            .HasIndex(notification => new
+            {
+                notification.ProcessedAtUtc,
+                notification.NextAttemptAtUtc,
+                notification.LeaseExpiresAtUtc
+            });
 }
 
 

@@ -13,12 +13,18 @@ public sealed class OrderPaymentService
     private readonly AppDbContext _context;
     private readonly IMercadoPagoService _mercadoPago;
     private readonly IConfiguration _configuration;
+    private readonly IOrderNotificationOutbox _notifications;
 
-    public OrderPaymentService(AppDbContext context, IMercadoPagoService mercadoPago, IConfiguration configuration)
+    public OrderPaymentService(
+        AppDbContext context,
+        IMercadoPagoService mercadoPago,
+        IConfiguration configuration,
+        IOrderNotificationOutbox? notifications = null)
     {
         _context = context;
         _mercadoPago = mercadoPago;
         _configuration = configuration;
+        _notifications = notifications ?? new NoopOrderNotificationOutbox();
     }
 
     public async Task<OrderPaymentAttempt> EnsurePreferenceAsync(Order order, CancellationToken cancellationToken = default)
@@ -336,6 +342,15 @@ public sealed class OrderPaymentService
                 }
                 order.Status = OrderStatusWorkflow.Cancelled;
             }
+        }
+
+        if (attempt.Status == PaymentStatusWorkflow.Approved
+            && order.Status == OrderStatusWorkflow.Preparing)
+        {
+            await _notifications.EnqueueAsync(
+                order,
+                OrderNotificationEventTypes.PaymentApprovedPreparing,
+                cancellationToken);
         }
 
         await _context.SaveChangesAsync(cancellationToken);

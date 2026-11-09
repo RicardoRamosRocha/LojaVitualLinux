@@ -16,10 +16,12 @@ namespace LojaVirtual.Controllers
     public class OrdersController : Controller
     {
         private readonly AppDbContext _context;
+        private readonly IOrderNotificationOutbox _notifications;
 
-        public OrdersController(AppDbContext context)
+        public OrdersController(AppDbContext context, IOrderNotificationOutbox? notifications = null)
         {
             _context = context;
+            _notifications = notifications ?? new NoopOrderNotificationOutbox();
         }
 
         // GET: Orders
@@ -67,9 +69,13 @@ namespace LojaVirtual.Controllers
         {
             if (ModelState.IsValid)
             {
+                await using var transaction = await _context.Database.BeginTransactionAsync();
                 order.Status = OrderStatusWorkflow.Pending;
                 _context.Add(order);
                 await _context.SaveChangesAsync();
+                await _notifications.EnqueueAsync(order, OrderNotificationEventTypes.OrderCreated);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 return RedirectToAction(nameof(Index));
             }
             return View(order);
@@ -104,6 +110,21 @@ namespace LojaVirtual.Controllers
             }
 
             order.Status = nextStatus;
+            if (nextStatus == OrderStatusWorkflow.Preparing
+                && paymentStatus == PaymentStatusWorkflow.Approved)
+            {
+                await _notifications.EnqueueAsync(
+                    order,
+                    OrderNotificationEventTypes.PaymentApprovedPreparing);
+            }
+            else if (nextStatus == OrderStatusWorkflow.Shipped)
+            {
+                await _notifications.EnqueueAsync(order, OrderNotificationEventTypes.OrderShipped);
+            }
+            else if (nextStatus == OrderStatusWorkflow.Delivered)
+            {
+                await _notifications.EnqueueAsync(order, OrderNotificationEventTypes.OrderDelivered);
+            }
             await _context.SaveChangesAsync();
 
             TempData["StatusSuccess"] = $"Status atualizado para {nextStatus}.";

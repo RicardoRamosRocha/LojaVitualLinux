@@ -149,11 +149,15 @@ builder.Services.AddHttpClient<IMelhorEnvioConnectivityDiagnostics, MelhorEnvioC
 builder.Services.AddScoped<IMelhorEnvioTokenStore, MelhorEnvioTokenStore>();
 builder.Services.AddScoped<IMelhorEnvioOAuthService, MelhorEnvioOAuthService>();
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
+builder.Services.Configure<OrderNotificationsOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(client =>
 {
     client.BaseAddress = new Uri("https://api.resend.com/");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
+builder.Services.AddScoped<IOrderNotificationOutbox, OrderNotificationOutboxService>();
+builder.Services.AddSingleton<IOrderNotificationComposer, OrderNotificationComposer>();
+builder.Services.AddHostedService<OrderNotificationOutboxWorker>();
 builder.Services.AddScoped<AdminProvisioningService>();
 builder.Services.AddScoped<IOrderAccessCredentialService, OrderAccessCredentialService>();
 builder.Services.AddScoped<OrderPaymentService>();

@@ -34,6 +34,7 @@ public sealed class ApiOrdersController : ControllerBase
     private readonly IOrderCancellationService? _cancellations;
     private readonly IShippingQuoteService _shippingQuotes;
     private readonly ShippingOptions _shippingOptions;
+    private readonly IOrderNotificationOutbox _notifications;
 
     public ApiOrdersController(
         AppDbContext context,
@@ -44,7 +45,8 @@ public sealed class ApiOrdersController : ControllerBase
         OrderRecoveryRateLimiter recoveryRateLimiter,
         IShippingQuoteService? shippingQuotes = null,
         IOptions<ShippingOptions>? shippingOptions = null,
-        IOrderCancellationService? cancellations = null)
+        IOrderCancellationService? cancellations = null,
+        IOrderNotificationOutbox? notifications = null)
     {
         _context = context;
         _antiforgery = antiforgery;
@@ -55,6 +57,7 @@ public sealed class ApiOrdersController : ControllerBase
         _cancellations = cancellations;
         _shippingQuotes = shippingQuotes ?? new DisabledShippingQuoteService();
         _shippingOptions = shippingOptions?.Value ?? new ShippingOptions();
+        _notifications = notifications ?? new NoopOrderNotificationOutbox();
     }
 
     [HttpGet("authorized")]
@@ -360,6 +363,10 @@ public sealed class ApiOrdersController : ControllerBase
         {
             await _context.SaveChangesAsync(cancellationToken);
             var orderAccess = await _orderAccess.PrepareAsync(order.Id, Request);
+            await _notifications.EnqueueAsync(
+                order,
+                OrderNotificationEventTypes.OrderCreated,
+                cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 

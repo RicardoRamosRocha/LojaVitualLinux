@@ -225,6 +225,7 @@ namespace LojaVirtual.Data.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<decimal?>("ShippingCost")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("ShippingDeliveryTime")
@@ -368,6 +369,55 @@ namespace LojaVirtual.Data.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("LojaVirtual.Models.OrderNotificationOutbox", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<DateTime?>("LeaseExpiresAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("LeaseToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime>("NextAttemptAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProcessedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId", "EventType")
+                        .IsUnique();
+
+                    b.HasIndex("ProcessedAtUtc", "NextAttemptAtUtc", "LeaseExpiresAtUtc");
+
+                    b.ToTable("OrderNotificationOutbox");
                 });
 
             modelBuilder.Entity("LojaVirtual.Models.OrderPaymentAttempt", b =>
@@ -748,6 +798,17 @@ namespace LojaVirtual.Data.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("LojaVirtual.Models.OrderNotificationOutbox", b =>
+                {
+                    b.HasOne("LojaVirtual.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("LojaVirtual.Models.OrderPaymentAttempt", b =>
