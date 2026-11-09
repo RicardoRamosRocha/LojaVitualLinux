@@ -17,11 +17,13 @@ namespace LojaVirtual.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IOrderNotificationOutbox _notifications;
+        private readonly IMelhorEnvioShipmentService? _shipments;
 
-        public OrdersController(AppDbContext context, IOrderNotificationOutbox? notifications = null)
+        public OrdersController(AppDbContext context, IOrderNotificationOutbox? notifications = null, IMelhorEnvioShipmentService? shipments = null)
         {
             _context = context;
             _notifications = notifications ?? new NoopOrderNotificationOutbox();
+            _shipments = shipments;
         }
 
         // GET: Orders
@@ -45,6 +47,7 @@ namespace LojaVirtual.Controllers
             var order = await _context.Orders
                 .Include(order => order.Items)
                 .Include(order => order.PaymentAttempts)
+                .Include(order => order.Shipment)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (order == null)
             {
@@ -52,6 +55,54 @@ namespace LojaVirtual.Controllers
             }
 
             return View(order);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> PrepareShipment(int id, CancellationToken cancellationToken) => RunShipmentActionAsync(id, "prepare", cancellationToken);
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> PurchaseShipment(int id, CancellationToken cancellationToken) => RunShipmentActionAsync(id, "purchase", cancellationToken);
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> GenerateShipmentLabel(int id, CancellationToken cancellationToken) => RunShipmentActionAsync(id, "generate", cancellationToken);
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> PrintShipmentLabel(int id, CancellationToken cancellationToken) => RunShipmentActionAsync(id, "print", cancellationToken);
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> TrackShipment(int id, CancellationToken cancellationToken) => RunShipmentActionAsync(id, "track", cancellationToken);
+
+        private async Task<IActionResult> RunShipmentActionAsync(int id, string operation, CancellationToken cancellationToken)
+        {
+            if (_shipments is null)
+            {
+                TempData["ShippingError"] = "A integração de remessas não está disponível.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            try
+            {
+                var shipment = operation switch
+                {
+                    "prepare" => await _shipments.PrepareAsync(id, cancellationToken),
+                    "purchase" => await _shipments.PurchaseAsync(id, cancellationToken),
+                    "generate" => await _shipments.GenerateAsync(id, cancellationToken),
+                    "print" => await _shipments.PrintAsync(id, cancellationToken),
+                    "track" => await _shipments.TrackAsync(id, cancellationToken),
+                    _ => throw new InvalidOperationException("Operação de remessa inválida.")
+                };
+                TempData["ShippingSuccess"] = $"Remessa atualizada: {shipment.Status}.";
+            }
+            catch (ShippingOperationException exception)
+            {
+                TempData["ShippingError"] = exception.Message;
+            }
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         // GET: Orders/Create

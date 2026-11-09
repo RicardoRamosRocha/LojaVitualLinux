@@ -23,6 +23,13 @@ namespace LojaVirtual.Models
 
         public string ZipCode { get; set; } = "";    
 
+        // Structured delivery fields are nullable for compatibility with legacy orders.
+        public string? AddressNumber { get; set; }
+        public string? AddressComplement { get; set; }
+        public string? Neighborhood { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+
         public string ShippingMethod { get; set; } = "";
 
         public decimal? ShippingCost { get; set; }
@@ -54,6 +61,8 @@ namespace LojaVirtual.Models
 
         public ICollection<OrderPaymentAttempt> PaymentAttempts { get; set; }
             = new List<OrderPaymentAttempt>();
+
+        public OrderShipment? Shipment { get; set; }
         
     }
 }

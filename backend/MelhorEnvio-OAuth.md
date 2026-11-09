@@ -50,8 +50,35 @@ Configurar no Render, sem prefixar com `NEXT_PUBLIC_`:
 - `Shipping__RedirectUri`
 - `Shipping__UserAgent`
 - `Shipping__QuoteTtlMinutes`
+- `Shipping__PurchaseEnabled` — manter `false` até a homologação financeira ser concluída.
 - `Shipping__StandardPackage__Enabled`
 - `Shipping__StandardPackage__MaxItems`
+- `Shipping__Sender__Name`
+- `Shipping__Sender__Email`
+- `Shipping__Sender__Phone`
+- `Shipping__Sender__Document` ou `Shipping__Sender__CompanyDocument`
+- `Shipping__Sender__StateRegister`
+- `Shipping__Sender__EconomicActivityCode`
+- `Shipping__Sender__Address`
+- `Shipping__Sender__Complement`
+- `Shipping__Sender__Number`
+- `Shipping__Sender__District`
+- `Shipping__Sender__City`
+- `Shipping__Sender__State`
+- `Shipping__Sender__PostalCode`
+
+## Operação de remessas
+
+O painel prepara o envio no carrinho com `POST /api/v2/me/cart`. A compra fica
+explicitamente bloqueada enquanto `Shipping__PurchaseEnabled=false` e nunca é
+disparada pelo webhook de pagamento. Depois da compra, o fluxo usa geração,
+impressão e rastreamento nas rotas oficiais correspondentes. As permissões OAuth
+devem ser reautorizadas com os scopes mínimos para essas operações; o token de
+cotação existente não deve ser presumido como suficiente.
+
+Uma falha de transporte durante uma operação que pode ter sido aceita pelo
+provedor grava a remessa como `Unknown`. O administrador deve reconciliar pelo
+rastreio antes de tentar novamente, evitando compra duplicada.
 
 Referências oficiais: [autenticação](https://docs.melhorenvio.com.br/docs/autenticacao),
 [fluxo de autorização](https://docs.melhorenvio.com.br/reference/fluxo-de-autoriza%C3%A7%C3%A3o)

@@ -203,6 +203,15 @@ namespace LojaVirtual.Data.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("AddressComplement")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("AddressNumber")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("City")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -219,6 +228,9 @@ namespace LojaVirtual.Data.Migrations
 
                     b.Property<string>("IdempotencyKey")
                         .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Neighborhood")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Phone")
                         .IsRequired()
@@ -250,6 +262,9 @@ namespace LojaVirtual.Data.Migrations
                         .HasColumnType("varchar(80)");
 
                     b.Property<string>("ShippingServiceName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("State")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Status")
@@ -488,6 +503,87 @@ namespace LojaVirtual.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("OrderPaymentAttempts");
+                });
+
+            modelBuilder.Entity("LojaVirtual.Models.OrderShipment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("GeneratedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("LabelUrl")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PrintedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ProviderOrderId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ProviderShipmentId")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<decimal?>("PurchaseAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("PurchasedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ServiceId")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ServiceName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<string>("TrackingCode")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TrackingStatus")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderShipmentId");
+
+                    b.ToTable("OrderShipments");
                 });
 
             modelBuilder.Entity("LojaVirtual.Models.OrderStockReservation", b =>
@@ -822,6 +918,17 @@ namespace LojaVirtual.Data.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("LojaVirtual.Models.OrderShipment", b =>
+                {
+                    b.HasOne("LojaVirtual.Models.Order", "Order")
+                        .WithOne("Shipment")
+                        .HasForeignKey("LojaVirtual.Models.OrderShipment", "OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("LojaVirtual.Models.OrderStockReservation", b =>
                 {
                     b.HasOne("LojaVirtual.Models.Order", "Order")
@@ -926,6 +1033,8 @@ namespace LojaVirtual.Data.Migrations
                     b.Navigation("Items");
 
                     b.Navigation("PaymentAttempts");
+
+                    b.Navigation("Shipment");
 
                     b.Navigation("StockReservations");
                 });

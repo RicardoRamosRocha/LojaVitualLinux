@@ -16,7 +16,27 @@ public sealed class ShippingOptions
     public string UserAgent { get; set; } = "Angel-Acessorios/1.0 (contato-tecnico)";
     public int QuoteTtlMinutes { get; set; } = 10;
     public string Services { get; set; } = string.Empty;
+    public bool PurchaseEnabled { get; set; }
+    public SenderShippingOptions Sender { get; set; } = new();
     public StandardShippingPackage StandardPackage { get; set; } = new();
+}
+
+public sealed class SenderShippingOptions
+{
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Document { get; set; } = string.Empty;
+    public string CompanyDocument { get; set; } = string.Empty;
+    public string StateRegister { get; set; } = string.Empty;
+    public string EconomicActivityCode { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string Complement { get; set; } = string.Empty;
+    public string Number { get; set; } = string.Empty;
+    public string District { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
+    public string PostalCode { get; set; } = string.Empty;
 }
 
 public sealed class StandardShippingPackage

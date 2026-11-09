@@ -13,6 +13,8 @@
 </div>
 @if (TempData["StatusSuccess"] is string successMessage) { <div class="alert alert-success" role="status">@successMessage</div> }
 @if (TempData["StatusError"] is string errorMessage) { <div class="alert alert-danger" role="alert">@errorMessage</div> }
+@if (TempData["ShippingSuccess"] is string shippingSuccess) { <div class="alert alert-success" role="status">@shippingSuccess</div> }
+@if (TempData["ShippingError"] is string shippingError) { <div class="alert alert-danger" role="alert">@shippingError</div> }
 <div class="alert alert-light border" role="status"><strong>Status financeiro:</strong> @paymentStatus</div>
 <div class="row g-4">
     <div class="col-lg-8">
@@ -23,6 +25,15 @@
         @if (hasNextStatus) { <form asp-action="UpdateStatus" method="post" class="row g-3 align-items-end mt-2" onsubmit="return confirm('Confirmar avanço deste pedido para @nextStatus?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><div class="col-md-7"><label class="form-label" for="nextStatus">Próxima etapa</label><select class="form-select" id="nextStatus" name="nextStatus"><option value="@nextStatus">@nextStatus</option></select></div><div class="col-md-5"><button type="submit" class="btn btn-dark admin-btn w-100"><i class="bi bi-arrow-right-circle me-2"></i>Confirmar avanço</button></div></form> } else if (Model.Status == OrderStatusWorkflow.Delivered) { <p class="text-secondary mb-0 mt-3">Este pedido já está entregue; não há avanço automático disponível.</p> } else { <p class="text-secondary mb-0 mt-3">Não há transições disponíveis para este status.</p> }
         <p class="small text-secondary mb-0 mt-3">O cancelamento permanece indisponível até existir um fluxo seguro para reservas, estoque e pagamentos.</p></div>
         <div class="admin-panel p-4"><h3 class="admin-section-title mb-3">Resumo financeiro</h3><div class="d-flex justify-content-between border-bottom py-2"><span>Subtotal</span><strong>@subtotal.ToString("C")</strong></div><div class="d-flex justify-content-between border-bottom py-2"><span>Frete (@Model.ShippingMethod)</span><strong>@((Model.Total - subtotal).ToString("C"))</strong></div><div class="d-flex justify-content-between pt-3 fs-5"><strong>Total</strong><strong>@Model.Total.ToString("C")</strong></div></div>
+        <div class="admin-panel p-4 mt-4"><h3 class="admin-section-title mb-1">Envio Melhor Envio</h3><p class="text-secondary small">A compra permanece bloqueada por configuração e nunca é iniciada automaticamente pelo pagamento.</p>
+        @if (Model.Shipment is not null) { <dl class="row small"><dt class="col-5">Status</dt><dd class="col-7">@Model.Shipment.Status</dd><dt class="col-5">Serviço</dt><dd class="col-7">@Model.Shipment.ServiceName</dd><dt class="col-5">Rastreio</dt><dd class="col-7">@(Model.Shipment.TrackingCode ?? "—")</dd><dt class="col-5">Etiqueta</dt><dd class="col-7">@if (!string.IsNullOrWhiteSpace(Model.Shipment.LabelUrl)) { <a href="@Model.Shipment.LabelUrl" target="_blank" rel="noopener">Abrir etiqueta</a> } else { <span>—</span> }</dd></dl> }
+        <div class="d-flex flex-wrap gap-2">
+            <form asp-action="PrepareShipment" method="post">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-dark btn-sm" type="submit">Preparar remessa</button></form>
+            <form asp-action="PurchaseShipment" method="post" onsubmit="return confirm('A compra ficará disponível quando a flag de compra estiver habilitada. Confirmar?');">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-danger btn-sm" type="submit">Comprar etiqueta</button></form>
+            <form asp-action="GenerateShipmentLabel" method="post">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-dark btn-sm" type="submit">Gerar etiqueta</button></form>
+            <form asp-action="PrintShipmentLabel" method="post">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-dark btn-sm" type="submit">Imprimir etiqueta</button></form>
+            <form asp-action="TrackShipment" method="post">@Html.AntiForgeryToken()<input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-dark btn-sm" type="submit">Atualizar rastreio</button></form>
+        </div></div>
     </div>
     <div class="col-lg-4"><div class="admin-panel p-4 mb-4"><h3 class="admin-section-title mb-3">Cliente</h3><p class="mb-2"><strong>@Model.CustomerName</strong></p><p class="text-secondary small mb-1">@Model.Email</p><p class="text-secondary small mb-0">@Model.Phone</p></div><div class="admin-panel p-4"><h3 class="admin-section-title mb-3">Entrega</h3><p class="mb-1">@Model.Address</p><p class="text-secondary mb-0">CEP: @Model.ZipCode</p></div></div>
 </div>

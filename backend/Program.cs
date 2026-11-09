@@ -148,6 +148,14 @@ builder.Services.AddHttpClient<IMelhorEnvioConnectivityDiagnostics, MelhorEnvioC
 });
 builder.Services.AddScoped<IMelhorEnvioTokenStore, MelhorEnvioTokenStore>();
 builder.Services.AddScoped<IMelhorEnvioOAuthService, MelhorEnvioOAuthService>();
+builder.Services.AddHttpClient<IMelhorEnvioShipmentService, MelhorEnvioShipmentService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+builder.Services.AddHttpClient<IMelhorEnvioAccessTokenProvider, MelhorEnvioAccessTokenProvider>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(8);
+});
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
 builder.Services.Configure<OrderNotificationsOptions>(builder.Configuration.GetSection("OrderNotifications"));
 builder.Services.AddHttpClient<ITransactionalEmailSender, ResendEmailSender>(client =>

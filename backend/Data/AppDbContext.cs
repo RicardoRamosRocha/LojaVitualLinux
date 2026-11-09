@@ -22,6 +22,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionK
     public DbSet<OrderAccessCredential> OrderAccessCredentials { get; set; }
     public DbSet<OrderAccessRecoveryToken> OrderAccessRecoveryTokens { get; set; }
     public DbSet<OrderPaymentAttempt> OrderPaymentAttempts { get; set; }
+    public DbSet<OrderShipment> OrderShipments { get; set; }
     public DbSet<OrderNotificationOutbox> OrderNotificationOutbox { get; set; }
 
     public DbSet<Customer> Customers { get; set; }
@@ -143,6 +144,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionK
             .HasIndex(attempt => attempt.PreferenceId).IsUnique();
         modelBuilder.Entity<OrderPaymentAttempt>()
             .HasIndex(attempt => attempt.PaymentId).IsUnique();
+
+        modelBuilder.Entity<OrderShipment>()
+            .HasOne(shipment => shipment.Order)
+            .WithOne(order => order.Shipment)
+            .HasForeignKey<OrderShipment>(shipment => shipment.OrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<OrderShipment>().HasIndex(shipment => shipment.OrderId).IsUnique();
+        modelBuilder.Entity<OrderShipment>().HasIndex(shipment => shipment.ProviderShipmentId);
+        modelBuilder.Entity<OrderShipment>().HasIndex(shipment => shipment.IdempotencyKey).IsUnique();
+        modelBuilder.Entity<OrderShipment>().Property(shipment => shipment.Status).HasMaxLength(32).IsRequired();
+        modelBuilder.Entity<OrderShipment>().Property(shipment => shipment.PurchaseAmount).HasPrecision(18, 2);
+        modelBuilder.Entity<OrderShipment>().Property(shipment => shipment.LastError).HasMaxLength(500);
 
         modelBuilder.Entity<OrderNotificationOutbox>()
             .HasOne(notification => notification.Order)
